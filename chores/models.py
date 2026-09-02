@@ -3,6 +3,7 @@ from django.core import signing
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models
+from django.utils import timezone
 
 # A household is permanently capped at two people (see _docs/plan.md).
 MAX_MEMBERS_PER_HOUSEHOLD = 2
@@ -32,6 +33,19 @@ CONSTRAINT_KIND_CHOICES = [
     ("prefer", "Preferred"),
     ("exclude", "Excluded"),
 ]
+
+# The lifecycle states a single dated chore occurrence moves through. Defined
+# here as a plain list of ``(value, label)`` pairs - NOT ``models.TextChoices`` -
+# mirroring ``CONSTRAINT_KIND_CHOICES`` so the framework-light
+# ``chores/occurrences.py`` module and task #10's completion flow can import the
+# values without pulling in Django's model layer.
+OCCURRENCE_STATUS_CHOICES = [
+    ("active", "Active"),
+    ("completed", "Completed"),
+]
+
+OCCURRENCE_STATUS_ACTIVE = OCCURRENCE_STATUS_CHOICES[0][0]
+OCCURRENCE_STATUS_COMPLETED = OCCURRENCE_STATUS_CHOICES[1][0]
 
 # Namespace for the signed invitation tokens so they can't be swapped in
 # from another ``django.core.signing`` use.
@@ -275,3 +289,49 @@ class Constraint(models.Model):
                     )
                 }
             )
+
+
+class ChoreOccurrence(models.Model):
+    """One dated instance of a chore, generated from the chore's cadence.
+
+    Rows are created by ``chores/occurrences.py`` (task #9). ``completed_at`` is
+    declared here but only written when an occurrence is completed (task #10).
+    Whether an occurrence is overdue is never stored - see :attr:`is_overdue`.
+    """
+
+    chore = models.ForeignKey(
+        Chore,
+        on_delete=models.CASCADE,
+        related_name="occurrences",
+    )
+    due_date = models.DateField()
+    status = models.CharField(
+        max_length=20,
+        choices=OCCURRENCE_STATUS_CHOICES,
+        default=OCCURRENCE_STATUS_ACTIVE,
+    )
+    completed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["due_date", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["chore", "due_date"],
+                name="unique_occurrence_per_chore_per_date",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.chore} on {self.due_date}"
+
+    @property
+    def is_overdue(self):
+        """True for an ``active`` occurrence whose ``due_date`` is in the past.
+
+        Derived on read - there is no stored ``overdue`` field. A ``completed``
+        occurrence is never overdue.
+        """
+        if self.status != OCCURRENCE_STATUS_ACTIVE:
+            return False
+        return self.due_date < timezone.localdate()
