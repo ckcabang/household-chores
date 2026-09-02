@@ -31,4 +31,14 @@ urlpatterns = [
         views.ConstraintDeleteView.as_view(),
         name="constraint_delete",
     ),
+    path(
+        "occurrences/",
+        views.OccurrenceListView.as_view(),
+        name="occurrence_list",
+    ),
+    path(
+        "occurrences/<int:pk>/complete/",
+        views.OccurrenceCompleteView.as_view(),
+        name="occurrence_complete",
+    ),
 ]

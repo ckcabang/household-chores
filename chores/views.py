@@ -21,10 +21,14 @@ from django.views.generic import (
     UpdateView,
 )
 
-from .forms import ChoreForm, HouseholdForm, SignupForm
+from .forms import ChoreForm, CompletionForm, HouseholdForm, SignupForm
 from .models import (
     CONSTRAINT_KIND_CHOICES,
+    DIFFICULTY_CHOICES,
+    OCCURRENCE_STATUS_ACTIVE,
+    OCCURRENCE_STATUS_COMPLETED,
     Chore,
+    ChoreOccurrence,
     Constraint,
     Invitation,
     Membership,
@@ -360,3 +364,78 @@ class ConstraintDeleteView(HouseholdScopedMixin, View):
         constraint.delete()
         messages.success(request, "Constraint removed.")
         return redirect("chores:chore_edit", pk=chore.pk)
+
+
+def _active_occurrences(household):
+    """The current household's ``active`` occurrences, oldest due first."""
+    return (
+        ChoreOccurrence.objects.filter(
+            chore__household=household,
+            status=OCCURRENCE_STATUS_ACTIVE,
+        )
+        .select_related("chore", "chore__primary_owner__user")
+        .order_by("due_date", "id")
+    )
+
+
+class OccurrenceListView(HouseholdScopedMixin, ListView):
+    """The current household's outstanding occurrences with a mark-done form."""
+
+    template_name = "chores/occurrence_list.html"
+    context_object_name = "occurrences"
+
+    def get_queryset(self):
+        return _active_occurrences(self.household)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.setdefault("difficulty_choices", DIFFICULTY_CHOICES)
+        return context
+
+
+class OccurrenceCompleteView(HouseholdScopedMixin, View):
+    """POST-only: mark an ``active`` occurrence done and record who did it.
+
+    A GET is rejected with 405 and mutates nothing. An occurrence in another
+    household - or an unknown pk - is a 404. Posting against an already
+    ``completed`` occurrence is a no-op with an info message.
+    """
+
+    http_method_names = ["post"]
+
+    def post(self, request, pk):
+        occurrence = get_object_or_404(
+            ChoreOccurrence, pk=pk, chore__household=self.household
+        )
+
+        if occurrence.status == OCCURRENCE_STATUS_COMPLETED:
+            messages.info(request, "That occurrence is already marked done.")
+            return redirect("chores:occurrence_list")
+
+        form = CompletionForm(request.POST)
+        if not form.is_valid():
+            context = {
+                "occurrences": _active_occurrences(self.household),
+                "current_household": self.household,
+                "current_membership": self.membership,
+                "difficulty_choices": DIFFICULTY_CHOICES,
+                "complete_form": form,
+                "complete_form_pk": occurrence.pk,
+            }
+            return render(
+                request, "chores/occurrence_list.html", context, status=200
+            )
+
+        with transaction.atomic():
+            occurrence.status = OCCURRENCE_STATUS_COMPLETED
+            occurrence.completed_at = timezone.now()
+            occurrence.save(update_fields=["status", "completed_at"])
+            completion = form.save(commit=False)
+            completion.occurrence = occurrence
+            completion.completed_by = self.membership
+            completion.save()
+
+        messages.success(
+            request, f"Marked “{occurrence.chore.name}” done."
+        )
+        return redirect("chores:occurrence_list")
