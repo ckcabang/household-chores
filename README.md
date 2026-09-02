@@ -72,7 +72,14 @@ The suite runs on every push and pull request via GitHub Actions
 ## Project layout
 
 - `config/` — Django project (settings, root URLconf, WSGI/ASGI)
-- `chores/` — main application (`chores/tests/` holds the test suite)
+- `chores/` — main application
+  - `chores/templates/chores/` — `base.html` shell and page templates
+  - `chores/static/chores/` — stylesheet and vendored HTMX + Alpine
+  - `chores/tests/` — the test suite
+
+The front end is server-rendered templates enhanced with
+[HTMX](https://htmx.org/) and [Alpine.js](https://alpinejs.dev/), both pinned and
+vendored into `chores/static/chores/vendor/` rather than loaded from a CDN.
 
 ## Status
 

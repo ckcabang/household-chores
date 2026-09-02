@@ -1,3 +1,7 @@
-from django.shortcuts import render
+from django.views.generic import TemplateView
 
-# Create your views here.
+
+class HomeView(TemplateView):
+    """Placeholder landing page that exercises the base layout."""
+
+    template_name = "chores/home.html"
