@@ -7,3 +7,7 @@
 - Commit in small steps and push regularly. Reference the issue in the commit
   message (e.g. `closes #7`) so it closes when the change lands on `main`.
 - Keep the test suite green: CI runs `pytest` on every push and pull request.
+
+Roles
+
+- PM - grooms a task before anyone implements it, follows _docs/team/pm.md
