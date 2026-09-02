@@ -1,0 +1,15 @@
+{% extends "chores/base.html" %}
+
+{% block title %}Invite your partner · Household Chores{% endblock %}
+
+{% block content %}
+  <h1>Invite your partner</h1>
+
+  {% if household_full %}
+    <p>This household is already full.</p>
+  {% else %}
+    <p>Share this link with the person you want to add. It works once and expires after a while.</p>
+    <p><a href="{{ invite_url }}">{{ invite_url }}</a></p>
+    <p><input type="text" readonly value="{{ invite_url }}" aria-label="Invite link"></p>
+  {% endif %}
+{% endblock %}

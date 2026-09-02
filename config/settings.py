@@ -117,6 +117,10 @@ LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "chores:home"
 LOGOUT_REDIRECT_URL = "chores:home"
 
+# How long a signed household invite link stays valid, in days. Read by the
+# invitation-accept view (see chores/views.py).
+INVITATION_MAX_AGE_DAYS = env.int("INVITATION_MAX_AGE_DAYS", default=7)
+
 
 # Internationalization
 # https://docs.djangoproject.com/en/5.1/topics/i18n/

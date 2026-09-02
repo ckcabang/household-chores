@@ -1,9 +1,14 @@
 from django.conf import settings
+from django.core import signing
 from django.core.exceptions import ValidationError
 from django.db import models
 
 # A household is permanently capped at two people (see _docs/plan.md).
 MAX_MEMBERS_PER_HOUSEHOLD = 2
+
+# Namespace for the signed invitation tokens so they can't be swapped in
+# from another ``django.core.signing`` use.
+INVITATION_TOKEN_SALT = "chores.models.Invitation"
 
 
 class Household(models.Model):
@@ -72,3 +77,52 @@ class Membership(models.Model):
     def save(self, *args, **kwargs):
         self._assert_household_not_full()
         super().save(*args, **kwargs)
+
+
+class Invitation(models.Model):
+    """A single pending invite for a not-yet-full household.
+
+    The shareable URL carries a :mod:`django.core.signing` token over this
+    row's primary key - the token string itself is never stored. One
+    invitation per household is enforced by the ``OneToOneField``.
+    """
+
+    household = models.OneToOneField(
+        Household,
+        on_delete=models.CASCADE,
+        related_name="invitation",
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="invitations_created",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    accepted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="invitations_accepted",
+    )
+    accepted_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f"Invitation to {self.household}"
+
+    @property
+    def token(self):
+        """A signed, URL-safe token identifying this invitation."""
+        return signing.dumps(self.pk, salt=INVITATION_TOKEN_SALT)
+
+    @staticmethod
+    def from_token(token, max_age):
+        """Return the ``Invitation`` a token points at.
+
+        Raises :class:`signing.SignatureExpired` if the token is older than
+        ``max_age`` (a ``timedelta`` or seconds), :class:`signing.BadSignature`
+        if it is tampered or malformed, and :class:`Invitation.DoesNotExist`
+        if the signed pk no longer exists.
+        """
+        pk = signing.loads(token, salt=INVITATION_TOKEN_SALT, max_age=max_age)
+        return Invitation.objects.get(pk=pk)
