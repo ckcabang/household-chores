@@ -35,18 +35,22 @@ See [`_docs/tech-stack-decision.md`](_docs/tech-stack-decision.md) for why.
 
 ## Getting started
 
+Dependencies are managed with [uv](https://docs.astral.sh/uv/).
+
 ```bash
-python -m venv .venv
-source .venv/Scripts/activate    # Windows (Git Bash); use .venv/bin/activate on macOS/Linux
-pip install -r requirements.txt
-python manage.py migrate
-python manage.py runserver
+uv sync
+uv run python manage.py migrate
+uv run python manage.py runserver
 ```
+
+`uv sync` creates `.venv/` and installs everything from `uv.lock`. Prefix commands
+with `uv run`, or activate the environment (`source .venv/Scripts/activate` on
+Windows Git Bash, `source .venv/bin/activate` elsewhere).
 
 ## Running tests
 
 ```bash
-pytest
+uv run pytest
 ```
 
 The suite runs on every push and pull request via GitHub Actions

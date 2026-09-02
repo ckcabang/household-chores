@@ -1,20 +1,19 @@
 Commands
 
-- `python -m venv .venv` then `source .venv/Scripts/activate` (Windows, Git Bash)
-  or `source .venv/bin/activate` (macOS/Linux) - create and enter the virtualenv
-- `pip install -r requirements.txt` - install dependencies
-- `pytest` - run the whole test suite
-- `pytest chores/tests/test_smoke.py` - run one test file
-- `python manage.py runserver` - run the app locally
-- `python manage.py check` - Django system checks
-- `python manage.py migrate` - apply migrations
+- `uv sync` - create `.venv/` and install dependencies from `uv.lock`
+- `uv run pytest` - run the whole test suite
+- `uv run pytest chores/tests/test_smoke.py` - run one test file
+- `uv run python manage.py runserver` - run the app locally
+- `uv run python manage.py check` - Django system checks
+- `uv run python manage.py migrate` - apply migrations
 
 Rules
 
-- Dependencies are pinned in `requirements.txt`. After `pip install`, run
-  `pip freeze > requirements.txt`. Do not add a dependency without asking.
-- Tests live in `chores/tests/`. Keep the suite green - CI runs `pytest` on
-  every push and pull request (`.github/workflows/ci.yml`).
+- Dependencies are declared in `pyproject.toml` and locked in `uv.lock`
+  (`uv add <pkg>`, or `uv add --dev <pkg>` for tooling). Both files are
+  committed. Do not add a dependency without asking.
+- Tests live in `chores/tests/`. Keep the suite green - CI runs `uv run pytest`
+  on every push and pull request (`.github/workflows/ci.yml`).
 - Fairness logic goes in a framework-agnostic `chores/fairness/` module with
   unit tests, not in views.
 
