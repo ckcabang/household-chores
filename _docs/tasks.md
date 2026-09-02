@@ -5,7 +5,8 @@ This file is just the index and the suggested order; the numbering is a recommen
 sequence, not a hard dependency chain.
 
 Before implementation, each issue is groomed against [`task-template.md`](task-template.md)
-into a goal, checkable acceptance criteria, out-of-scope items, and constraints — see
+into a goal, checkable acceptance criteria, out-of-scope items, and constraints. The full
+groom → implement → verify lifecycle and the roles that run it are in
 [`process.md`](process.md).
 
 Tasks 4–21 have been groomed; the groomed text lives in [`groomed/`](groomed/) and on the
