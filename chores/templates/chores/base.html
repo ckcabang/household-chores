@@ -16,6 +16,16 @@
       <nav class="site-nav" aria-label="Primary">
         <a href="{% url 'chores:home' %}">Home</a>
         {# Dashboard, Chores, and Setup links are added by their own tasks. #}
+        {% if user.is_authenticated %}
+          <span class="site-nav__user">{{ user.username }}</span>
+          <form class="site-nav__logout" method="post" action="{% url 'logout' %}">
+            {% csrf_token %}
+            <button type="submit">Log out</button>
+          </form>
+        {% else %}
+          <a href="{% url 'login' %}">Log in</a>
+          <a href="{% url 'signup' %}">Sign up</a>
+        {% endif %}
       </nav>
     </div>
   </header>
