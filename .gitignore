@@ -1,17 +1,23 @@
-# Dependencies
-node_modules/
-.pnp/
-.pnp.js
-vendor/
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
 
-# Build output
-dist/
-build/
-out/
-.next/
-.nuxt/
-.cache/
-coverage/
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Django
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+/media/
+/staticfiles/
+/static_collected/
 
 # Environment / secrets
 .env
@@ -19,23 +25,16 @@ coverage/
 !.env.example
 *.local
 
-# Logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
+# Coverage / test artifacts
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+.tox/
 
-# Runtime / temp
-tmp/
-temp/
-*.pid
-*.seed
-
-# Database
-*.sqlite
-*.sqlite3
-*.db
+# Frontend assets (if added later)
+node_modules/
+dist/
 
 # Editor / IDE
 .vscode/
