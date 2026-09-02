@@ -21,4 +21,14 @@ urlpatterns = [
         views.ChoreDeleteView.as_view(),
         name="chore_delete",
     ),
+    path(
+        "chores/<int:chore_pk>/constraints/add/",
+        views.ConstraintCreateView.as_view(),
+        name="constraint_add",
+    ),
+    path(
+        "chores/<int:chore_pk>/constraints/<int:pk>/delete/",
+        views.ConstraintDeleteView.as_view(),
+        name="constraint_delete",
+    ),
 ]

@@ -12,4 +12,52 @@
     <button type="submit">Save chore</button>
     <a href="{% url 'chores:chore_list' %}">Cancel</a>
   </form>
+
+  {% if form.instance.pk %}
+    <section class="constraints" id="constraints">
+      <h2>Constraints</h2>
+      <p>Mark a person as preferred or excluded for this chore.</p>
+
+      {% if constraints %}
+        <ul class="constraint-list">
+          {% for constraint in constraints %}
+            <li>
+              {{ constraint.membership.user.username }}:
+              {{ constraint.get_kind_display }}
+              <form method="post"
+                    action="{% url 'chores:constraint_delete' form.instance.pk constraint.pk %}"
+                    class="constraint-delete">
+                {% csrf_token %}
+                <button type="submit">Delete</button>
+              </form>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p>No constraints yet.</p>
+      {% endif %}
+
+      <form method="post"
+            action="{% url 'chores:constraint_add' form.instance.pk %}"
+            class="constraint-add">
+        {% csrf_token %}
+        <label for="constraint-membership">Person</label>
+        <select name="membership" id="constraint-membership" required>
+          <option value="">Choose a person</option>
+          {% for membership in household_memberships %}
+            <option value="{{ membership.pk }}">{{ membership.user.username }}</option>
+          {% endfor %}
+        </select>
+
+        <label for="constraint-kind">Mark as</label>
+        <select name="kind" id="constraint-kind" required>
+          {% for value, label in constraint_kind_choices %}
+            <option value="{{ value }}">{{ label }}</option>
+          {% endfor %}
+        </select>
+
+        <button type="submit">Add constraint</button>
+      </form>
+    </section>
+  {% endif %}
 {% endblock %}

@@ -8,7 +8,7 @@ from django.core import signing
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.http import Http404
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -22,7 +22,13 @@ from django.views.generic import (
 )
 
 from .forms import ChoreForm, HouseholdForm, SignupForm
-from .models import Chore, Invitation, Membership
+from .models import (
+    CONSTRAINT_KIND_CHOICES,
+    Chore,
+    Constraint,
+    Invitation,
+    Membership,
+)
 
 
 def _safe_next(request):
@@ -239,7 +245,12 @@ class ChoreListView(HouseholdScopedMixin, ListView):
     context_object_name = "chores"
 
     def get_queryset(self):
-        return super().get_queryset().select_related("primary_owner__user")
+        return (
+            super()
+            .get_queryset()
+            .select_related("primary_owner__user")
+            .prefetch_related("constraints__membership__user")
+        )
 
 
 class ChoreFormViewMixin(HouseholdScopedMixin):
@@ -261,7 +272,18 @@ class ChoreCreateView(ChoreFormViewMixin, CreateView):
 
 
 class ChoreUpdateView(ChoreFormViewMixin, UpdateView):
-    pass
+    """Edit a chore and manage its people-to-chore constraints."""
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["constraints"] = self.object.constraints.select_related(
+            "membership__user"
+        )
+        context["household_memberships"] = Membership.objects.filter(
+            household=self.household
+        ).select_related("user")
+        context["constraint_kind_choices"] = CONSTRAINT_KIND_CHOICES
+        return context
 
 
 class ChoreDeleteView(HouseholdScopedMixin, DeleteView):
@@ -270,3 +292,71 @@ class ChoreDeleteView(HouseholdScopedMixin, DeleteView):
     model = Chore
     template_name = "chores/chore_confirm_delete.html"
     success_url = reverse_lazy("chores:chore_list")
+
+
+class ConstraintCreateView(HouseholdScopedMixin, View):
+    """POST-only: mark a person preferred/excluded for a chore.
+
+    Scoped to the current household by ``HouseholdScopedMixin``. A GET is
+    rejected with 405 and mutates nothing. A ``chore_pk`` or submitted
+    ``membership`` outside the household is a 404.
+    """
+
+    http_method_names = ["post"]
+
+    def post(self, request, chore_pk):
+        chore = get_object_or_404(Chore, pk=chore_pk, household=self.household)
+        edit_url = reverse("chores:chore_edit", args=[chore.pk])
+
+        kind = request.POST.get("kind") or ""
+        if kind not in dict(CONSTRAINT_KIND_CHOICES):
+            messages.error(
+                request, "Choose whether the person is preferred or excluded."
+            )
+            return redirect(edit_url)
+
+        membership_id = request.POST.get("membership") or ""
+        if not membership_id:
+            messages.error(request, "Choose a person for this constraint.")
+            return redirect(edit_url)
+        try:
+            membership = Membership.objects.select_related("user").get(
+                pk=membership_id, household=self.household
+            )
+        except (Membership.DoesNotExist, ValueError):
+            raise Http404("No such person in this household.")
+
+        if Constraint.objects.filter(chore=chore, membership=membership).exists():
+            messages.error(
+                request,
+                f"{membership.user.username} already has a constraint on "
+                f"{chore.name}. Delete it before adding a different one.",
+            )
+            return redirect(edit_url)
+
+        constraint = Constraint(chore=chore, membership=membership, kind=kind)
+        try:
+            constraint.full_clean()
+        except ValidationError as exc:
+            messages.error(request, "; ".join(exc.messages))
+            return redirect(edit_url)
+        constraint.save()
+        messages.success(
+            request,
+            f"Marked {membership.user.username} "
+            f"{constraint.get_kind_display().lower()} for {chore.name}.",
+        )
+        return redirect(edit_url)
+
+
+class ConstraintDeleteView(HouseholdScopedMixin, View):
+    """POST-only: remove one constraint from a chore in the household."""
+
+    http_method_names = ["post"]
+
+    def post(self, request, chore_pk, pk):
+        chore = get_object_or_404(Chore, pk=chore_pk, household=self.household)
+        constraint = get_object_or_404(Constraint, pk=pk, chore=chore)
+        constraint.delete()
+        messages.success(request, "Constraint removed.")
+        return redirect("chores:chore_edit", pk=chore.pk)
