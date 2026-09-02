@@ -5,9 +5,10 @@
 - Before implementation, a task is groomed against `_docs/task-template.md` so the
   issue has a goal, checkable acceptance criteria, out-of-scope items, and constraints.
 - Each task is sized to a single working session. Read the groomed issue before
-  starting, and again before closing it.
+  starting, and again before handing it to QA.
 - Commit in small steps and push regularly. Reference the issue in the commit
-  message (e.g. `closes #7`) so it closes when the change lands on `main`.
+  message (e.g. `refs #7`), but do not use auto-closing keywords - the
+  orchestrator closes the issue after QA passes (see Lifecycle).
 - Keep the test suite green: CI runs `uv run pytest` on every push and pull request.
 
 Roles

@@ -22,6 +22,8 @@ Documents
 - `_docs/plan.md` - MVP definition and what is out of scope
 - `_docs/tech-stack-decision.md` - stack rationale (ADR-001)
 - `_docs/tasks.md` - backlog index; each task is a GitHub issue
-- `_docs/process.md` - how work is organized
+- `_docs/process.md` - how work is organized: roles, orchestrator, task lifecycle
 - `_docs/task-template.md` - the shape a groomed issue takes
 - `_docs/team/pm.md` - PM role: grooms an issue before implementation
+- `_docs/team/software-engineer.md` - Engineer role: implements one groomed issue
+- `_docs/team/qa-engineer.md` - QA role: verifies the result against the acceptance criteria
