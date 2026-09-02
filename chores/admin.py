@@ -3,6 +3,7 @@ from django.contrib import admin
 from .models import (
     Chore,
     ChoreOccurrence,
+    Completion,
     Constraint,
     Household,
     Invitation,
@@ -53,6 +54,20 @@ class ChoreOccurrenceAdmin(admin.ModelAdmin):
     list_filter = ("status", "chore__household")
     list_select_related = ("chore", "chore__household")
     search_fields = ("chore__name", "chore__household__name")
+
+
+@admin.register(Completion)
+class CompletionAdmin(admin.ModelAdmin):
+    list_display = (
+        "occurrence",
+        "completed_by",
+        "actual_minutes",
+        "actual_effort",
+        "created_at",
+    )
+    list_select_related = ("occurrence", "completed_by__user")
+    list_filter = ("completed_by__household",)
+    search_fields = ("occurrence__chore__name", "completed_by__user__username")
 
 
 @admin.register(Invitation)
