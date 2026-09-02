@@ -1,10 +1,27 @@
 from django.conf import settings
 from django.core import signing
 from django.core.exceptions import ValidationError
+from django.core.validators import MinValueValidator
 from django.db import models
 
 # A household is permanently capped at two people (see _docs/plan.md).
 MAX_MEMBERS_PER_HOUSEHOLD = 2
+
+# The fixed difficulty scale for a chore. Defined here as a plain list of
+# ``(value, label)`` pairs - NOT ``models.IntegerChoices`` - so the
+# framework-agnostic ``chores/fairness/`` module and task #10's effort field
+# can import it without pulling in Django's model layer.
+DIFFICULTY_CHOICES = [
+    (1, "Very easy"),
+    (2, "Easy"),
+    (3, "Moderate"),
+    (4, "Hard"),
+    (5, "Very hard"),
+]
+
+# Convenience bounds derived from the scale above.
+DIFFICULTY_MIN = DIFFICULTY_CHOICES[0][0]
+DIFFICULTY_MAX = DIFFICULTY_CHOICES[-1][0]
 
 # Namespace for the signed invitation tokens so they can't be swapped in
 # from another ``django.core.signing`` use.
@@ -126,3 +143,62 @@ class Invitation(models.Model):
         """
         pk = signing.loads(token, salt=INVITATION_TOKEN_SALT, max_age=max_age)
         return Invitation.objects.get(pk=pk)
+
+
+class Chore(models.Model):
+    """A recurring task a household plans and shares.
+
+    Occurrences are generated from ``cadence_days`` by a later task (#9); this
+    model only captures the chore's definition.
+    """
+
+    household = models.ForeignKey(
+        Household,
+        on_delete=models.CASCADE,
+        related_name="chores",
+    )
+    name = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    cadence_days = models.PositiveIntegerField(
+        validators=[MinValueValidator(1)],
+        help_text="How many days between one occurrence and the next.",
+    )
+    estimated_minutes = models.PositiveIntegerField(
+        validators=[MinValueValidator(1)],
+        help_text="Rough time one occurrence takes.",
+    )
+    difficulty = models.PositiveSmallIntegerField(
+        choices=DIFFICULTY_CHOICES,
+        default=DIFFICULTY_CHOICES[2][0],
+    )
+    primary_owner = models.ForeignKey(
+        Membership,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="primary_chores",
+    )
+    allows_multiple_contributors = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+    def clean(self):
+        super().clean()
+        if (
+            self.primary_owner_id is not None
+            and self.household_id is not None
+            and self.primary_owner.household_id != self.household_id
+        ):
+            raise ValidationError(
+                {
+                    "primary_owner": (
+                        "The primary owner must be a member of this household."
+                    )
+                }
+            )

@@ -1,0 +1,42 @@
+{% extends "chores/base.html" %}
+
+{% block title %}Chores · Household Chores{% endblock %}
+
+{% block content %}
+  <h1>Chores</h1>
+  <p><a href="{% url 'chores:chore_create' %}">Add a chore</a></p>
+
+  {% if chores %}
+    <table class="chore-list">
+      <thead>
+        <tr>
+          <th scope="col">Name</th>
+          <th scope="col">Every (days)</th>
+          <th scope="col">Estimate (min)</th>
+          <th scope="col">Difficulty</th>
+          <th scope="col">Primary owner</th>
+          <th scope="col"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for chore in chores %}
+          <tr>
+            <td>{{ chore.name }}</td>
+            <td>{{ chore.cadence_days }}</td>
+            <td>{{ chore.estimated_minutes }}</td>
+            <td>{{ chore.get_difficulty_display }}</td>
+            <td>
+              {% if chore.primary_owner %}{{ chore.primary_owner.user.username }}{% else %}&mdash;{% endif %}
+            </td>
+            <td>
+              <a href="{% url 'chores:chore_edit' chore.pk %}">Edit</a>
+              <a href="{% url 'chores:chore_delete' chore.pk %}">Delete</a>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p>No chores yet.</p>
+  {% endif %}
+{% endblock %}
