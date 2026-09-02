@@ -21,6 +21,7 @@ from django.views.generic import (
     UpdateView,
 )
 
+from .fairness import workload_value
 from .forms import ChoreForm, CompletionForm, HouseholdForm, SignupForm
 from .models import (
     CONSTRAINT_KIND_CHOICES,
@@ -30,6 +31,7 @@ from .models import (
     Chore,
     ChoreOccurrence,
     Constraint,
+    ContributionCredit,
     Invitation,
     Membership,
 )
@@ -373,7 +375,9 @@ def _active_occurrences(household):
             chore__household=household,
             status=OCCURRENCE_STATUS_ACTIVE,
         )
-        .select_related("chore", "chore__primary_owner__user")
+        .select_related(
+            "chore", "chore__primary_owner__user", "claimed_by__user"
+        )
         .order_by("due_date", "id")
     )
 
@@ -426,6 +430,9 @@ class OccurrenceCompleteView(HouseholdScopedMixin, View):
                 request, "chores/occurrence_list.html", context, status=200
             )
 
+        chore = occurrence.chore
+        owner = chore.primary_owner
+
         with transaction.atomic():
             occurrence.status = OCCURRENCE_STATUS_COMPLETED
             occurrence.completed_at = timezone.now()
@@ -435,7 +442,67 @@ class OccurrenceCompleteView(HouseholdScopedMixin, View):
             completion.completed_by = self.membership
             completion.save()
 
+            # Record helper credit when this member covered work owned by the
+            # other member. Nothing to credit when the chore has no owner, or
+            # when the owner did their own chore. ``workload_value`` is frozen
+            # from the chore's estimate (not the Completion's actuals) with
+            # neutral weights - task #12 wires in the household's real weights.
+            if owner is not None and owner.pk != self.membership.pk:
+                ContributionCredit.objects.get_or_create(
+                    completion=completion,
+                    defaults={
+                        "helper": self.membership,
+                        "owner": owner,
+                        "workload_value": workload_value(
+                            chore.estimated_minutes,
+                            chore.difficulty,
+                            weights=None,
+                        ),
+                    },
+                )
+
         messages.success(
             request, f"Marked “{occurrence.chore.name}” done."
         )
         return redirect("chores:occurrence_list")
+
+
+class OccurrenceClaimView(HouseholdScopedMixin, View):
+    """POST-only: volunteer the acting member to do one ``active`` occurrence.
+
+    Claiming is advisory - it sets ``occurrence.claimed_by`` and never touches
+    ``chore.primary_owner``. A GET is rejected with 405 and mutates nothing. An
+    occurrence in another household - or an unknown pk - is a 404.
+
+    No-op paths (info message, nothing written): the acting member already owns
+    the chore, the occurrence is already ``completed``, or the acting member has
+    already claimed it. Claiming an occurrence the *other* member claimed
+    reassigns it ("I'll take it instead").
+    """
+
+    http_method_names = ["post"]
+
+    def post(self, request, pk):
+        occurrence = get_object_or_404(
+            ChoreOccurrence, pk=pk, chore__household=self.household
+        )
+        list_url = reverse("chores:occurrence_list")
+
+        if occurrence.chore.primary_owner_id == self.membership.pk:
+            messages.info(request, "You already own that chore.")
+            return redirect(list_url)
+
+        if occurrence.status == OCCURRENCE_STATUS_COMPLETED:
+            messages.info(request, "That occurrence is already marked done.")
+            return redirect(list_url)
+
+        if occurrence.claimed_by_id == self.membership.pk:
+            messages.info(request, "You've already claimed that occurrence.")
+            return redirect(list_url)
+
+        occurrence.claimed_by = self.membership
+        occurrence.save(update_fields=["claimed_by"])
+        messages.success(
+            request, f"You've claimed “{occurrence.chore.name}”."
+        )
+        return redirect(list_url)

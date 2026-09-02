@@ -41,4 +41,9 @@ urlpatterns = [
         views.OccurrenceCompleteView.as_view(),
         name="occurrence_complete",
     ),
+    path(
+        "occurrences/<int:pk>/claim/",
+        views.OccurrenceClaimView.as_view(),
+        name="occurrence_claim",
+    ),
 ]
