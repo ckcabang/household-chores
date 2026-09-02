@@ -5,6 +5,8 @@ description = "An app for two-person households to plan, assign, and balance rec
 requires-python = ">=3.12"
 dependencies = [
     "django>=5.1,<5.2",
+    "django-environ>=0.14.0",
+    "psycopg[binary]>=3.3.5",
 ]
 
 [dependency-groups]

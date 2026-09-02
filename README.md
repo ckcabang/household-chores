@@ -47,6 +47,19 @@ uv run python manage.py runserver
 with `uv run`, or activate the environment (`source .venv/Scripts/activate` on
 Windows Git Bash, `source .venv/bin/activate` elsewhere).
 
+## Configuration
+
+Settings are read from the environment. With no configuration the app runs on
+SQLite with `DEBUG` on and an insecure development key — good enough for local work.
+For anything else, copy `.env.example` to `.env` (git-ignored) and override:
+
+| Variable | Default | Notes |
+|---|---|---|
+| `SECRET_KEY` | insecure dev key | Set a real one in production. |
+| `DEBUG` | `true` | Must be `false` in production. |
+| `ALLOWED_HOSTS` | `localhost,127.0.0.1,[::1]` | Comma-separated; required when `DEBUG=false`. |
+| `DATABASE_URL` | local SQLite file | e.g. `postgres://user:pass@host:5432/dbname`. The `psycopg` driver is installed. |
+
 ## Running tests
 
 ```bash
