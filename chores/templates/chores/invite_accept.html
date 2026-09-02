@@ -1,0 +1,9 @@
+{% extends "chores/base.html" %}
+
+{% block title %}Join a household · Household Chores{% endblock %}
+
+{% block content %}
+  <h1>Join a household</h1>
+  <p>{{ error }}</p>
+  <p><a href="{% url 'chores:home' %}">Back to home</a></p>
+{% endblock %}

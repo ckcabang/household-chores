@@ -19,6 +19,8 @@
         {% if user.is_authenticated %}
           {% if not current_household %}
             <a href="{% url 'chores:household_create' %}">Create a household</a>
+          {% elif not current_household.is_full %}
+            <a href="{% url 'chores:invite' %}">Invite your partner</a>
           {% endif %}
           <span class="site-nav__user">{{ user.username }}</span>
           <form class="site-nav__logout" method="post" action="{% url 'logout' %}">
