@@ -1,6 +1,13 @@
 from django.contrib import admin
 
-from .models import Chore, Constraint, Household, Invitation, Membership
+from .models import (
+    Chore,
+    ChoreOccurrence,
+    Constraint,
+    Household,
+    Invitation,
+    Membership,
+)
 
 
 @admin.register(Household)
@@ -38,6 +45,14 @@ class ConstraintAdmin(admin.ModelAdmin):
     list_filter = ("kind",)
     list_select_related = ("chore", "membership__user")
     search_fields = ("chore__name", "membership__user__username")
+
+
+@admin.register(ChoreOccurrence)
+class ChoreOccurrenceAdmin(admin.ModelAdmin):
+    list_display = ("chore", "due_date", "status", "completed_at")
+    list_filter = ("status", "chore__household")
+    list_select_related = ("chore", "chore__household")
+    search_fields = ("chore__name", "chore__household__name")
 
 
 @admin.register(Invitation)
