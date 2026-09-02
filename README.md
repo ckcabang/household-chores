@@ -1,5 +1,7 @@
 # Household Chores
 
+[![CI](https://github.com/ckcabang/household-chores/actions/workflows/ci.yml/badge.svg)](https://github.com/ckcabang/household-chores/actions/workflows/ci.yml)
+
 An app for two-person households to plan, assign, and balance recurring chores fairly.
 
 ## What it does
@@ -41,10 +43,19 @@ python manage.py migrate
 python manage.py runserver
 ```
 
-Project layout:
+## Running tests
+
+```bash
+pytest
+```
+
+The suite runs on every push and pull request via GitHub Actions
+([`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
+
+## Project layout
 
 - `config/` — Django project (settings, root URLconf, WSGI/ASGI)
-- `chores/` — main application
+- `chores/` — main application (`chores/tests/` holds the test suite)
 
 ## Status
 
