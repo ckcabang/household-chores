@@ -15,7 +15,10 @@
       <a class="site-title" href="{% url 'chores:home' %}">Household Chores</a>
       <nav class="site-nav" aria-label="Primary">
         <a href="{% url 'chores:home' %}">Home</a>
-        {# Dashboard, Chores, and Setup links are added by their own tasks. #}
+        {# Dashboard and Setup links are added by their own tasks. #}
+        {% if current_household %}
+          <a href="{% url 'chores:chore_list' %}">Chores</a>
+        {% endif %}
         {% if user.is_authenticated %}
           {% if not current_household %}
             <a href="{% url 'chores:household_create' %}">Create a household</a>

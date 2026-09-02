@@ -13,4 +13,12 @@ urlpatterns = [
         views.InviteAcceptView.as_view(),
         name="invite_accept",
     ),
+    path("chores/", views.ChoreListView.as_view(), name="chore_list"),
+    path("chores/new/", views.ChoreCreateView.as_view(), name="chore_create"),
+    path("chores/<int:pk>/edit/", views.ChoreUpdateView.as_view(), name="chore_edit"),
+    path(
+        "chores/<int:pk>/delete/",
+        views.ChoreDeleteView.as_view(),
+        name="chore_delete",
+    ),
 ]

@@ -13,10 +13,16 @@ from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views import View
-from django.views.generic import CreateView, TemplateView
+from django.views.generic import (
+    CreateView,
+    DeleteView,
+    ListView,
+    TemplateView,
+    UpdateView,
+)
 
-from .forms import HouseholdForm, SignupForm
-from .models import Invitation, Membership
+from .forms import ChoreForm, HouseholdForm, SignupForm
+from .models import Chore, Invitation, Membership
 
 
 def _safe_next(request):
@@ -189,3 +195,78 @@ class InviteAcceptView(LoginRequiredMixin, View):
             f"Welcome! You've joined {household.name}.",
         )
         return redirect("chores:home")
+
+
+class HouseholdScopedMixin(LoginRequiredMixin):
+    """Gate a view behind login + household membership and scope its data.
+
+    - An anonymous visitor is sent to login by ``LoginRequiredMixin``.
+    - A signed-in user with no ``Membership`` is redirected to
+      ``chores:household_create`` (on both GET and POST).
+    - ``self.membership`` / ``self.household`` are exposed to the view and
+      template, and ``get_queryset`` is filtered to the current household.
+
+    Reused by the chore views here and by later tasks (#8, #10, #14, #17).
+    """
+
+    def dispatch(self, request, *args, **kwargs):
+        if request.user.is_authenticated:
+            self.membership = (
+                Membership.objects.select_related("household")
+                .filter(user=request.user)
+                .first()
+            )
+            if self.membership is None:
+                return redirect("chores:household_create")
+            self.household = self.membership.household
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_queryset(self):
+        return super().get_queryset().filter(household=self.household)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.setdefault("current_household", self.household)
+        context.setdefault("current_membership", self.membership)
+        return context
+
+
+class ChoreListView(HouseholdScopedMixin, ListView):
+    """List the current household's chores."""
+
+    model = Chore
+    template_name = "chores/chore_list.html"
+    context_object_name = "chores"
+
+    def get_queryset(self):
+        return super().get_queryset().select_related("primary_owner__user")
+
+
+class ChoreFormViewMixin(HouseholdScopedMixin):
+    """Shared wiring for the chore create and update views."""
+
+    model = Chore
+    form_class = ChoreForm
+    template_name = "chores/chore_form.html"
+    success_url = reverse_lazy("chores:chore_list")
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["household"] = self.household
+        return kwargs
+
+
+class ChoreCreateView(ChoreFormViewMixin, CreateView):
+    pass
+
+
+class ChoreUpdateView(ChoreFormViewMixin, UpdateView):
+    pass
+
+
+class ChoreDeleteView(HouseholdScopedMixin, DeleteView):
+    """Confirm (GET) then delete (POST) a chore in the current household."""
+
+    model = Chore
+    template_name = "chores/chore_confirm_delete.html"
+    success_url = reverse_lazy("chores:chore_list")

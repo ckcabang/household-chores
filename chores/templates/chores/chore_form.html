@@ -1,0 +1,15 @@
+{% extends "chores/base.html" %}
+
+{% block title %}
+  {% if form.instance.pk %}Edit chore{% else %}Add a chore{% endif %} · Household Chores
+{% endblock %}
+
+{% block content %}
+  <h1>{% if form.instance.pk %}Edit {{ form.instance.name }}{% else %}Add a chore{% endif %}</h1>
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Save chore</button>
+    <a href="{% url 'chores:chore_list' %}">Cancel</a>
+  </form>
+{% endblock %}
