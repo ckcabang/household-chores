@@ -5,6 +5,7 @@ from .models import (
     ChoreOccurrence,
     Completion,
     Constraint,
+    ContributionCredit,
     Household,
     Invitation,
     Membership,
@@ -50,9 +51,9 @@ class ConstraintAdmin(admin.ModelAdmin):
 
 @admin.register(ChoreOccurrence)
 class ChoreOccurrenceAdmin(admin.ModelAdmin):
-    list_display = ("chore", "due_date", "status", "completed_at")
+    list_display = ("chore", "due_date", "status", "completed_at", "claimed_by")
     list_filter = ("status", "chore__household")
-    list_select_related = ("chore", "chore__household")
+    list_select_related = ("chore", "chore__household", "claimed_by__user")
     search_fields = ("chore__name", "chore__household__name")
 
 
@@ -68,6 +69,22 @@ class CompletionAdmin(admin.ModelAdmin):
     list_select_related = ("occurrence", "completed_by__user")
     list_filter = ("completed_by__household",)
     search_fields = ("occurrence__chore__name", "completed_by__user__username")
+
+
+@admin.register(ContributionCredit)
+class ContributionCreditAdmin(admin.ModelAdmin):
+    list_display = ("completion", "helper", "owner", "workload_value", "created_at")
+    list_select_related = (
+        "completion__occurrence__chore",
+        "helper__user",
+        "owner__user",
+    )
+    list_filter = ("helper__household",)
+    search_fields = (
+        "completion__occurrence__chore__name",
+        "helper__user__username",
+        "owner__user__username",
+    )
 
 
 @admin.register(Invitation)

@@ -13,6 +13,7 @@
           <th scope="col">Chore</th>
           <th scope="col">Due</th>
           <th scope="col">Owner</th>
+          <th scope="col">Claim</th>
           <th scope="col">Mark done</th>
         </tr>
       </thead>
@@ -31,6 +32,19 @@
                 {{ occurrence.chore.primary_owner.user.username }}
               {% else %}
                 &mdash;
+              {% endif %}
+            </td>
+            <td>
+              {% if occurrence.claimed_by %}
+                <span class="occurrence-list__claimed">Claimed by {{ occurrence.claimed_by.user.username }}</span>
+              {% endif %}
+              {% if current_membership.pk != occurrence.chore.primary_owner_id and current_membership.pk != occurrence.claimed_by_id %}
+                <form method="post"
+                      action="{% url 'chores:occurrence_claim' occurrence.pk %}"
+                      class="occurrence-claim">
+                  {% csrf_token %}
+                  <button type="submit">Claim</button>
+                </form>
               {% endif %}
             </td>
             <td>

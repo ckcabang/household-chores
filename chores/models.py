@@ -3,6 +3,7 @@ from django.core import signing
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models
+from django.db.models import F, Q
 from django.utils import timezone
 
 # A household is permanently capped at two people (see _docs/plan.md).
@@ -311,6 +312,17 @@ class ChoreOccurrence(models.Model):
         default=OCCURRENCE_STATUS_ACTIVE,
     )
     completed_at = models.DateTimeField(null=True, blank=True)
+    claimed_by = models.ForeignKey(
+        Membership,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="claimed_occurrences",
+        help_text=(
+            "The member who volunteered to do this occurrence. Advisory only - "
+            "it never changes the chore's primary owner."
+        ),
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -324,6 +336,22 @@ class ChoreOccurrence(models.Model):
 
     def __str__(self):
         return f"{self.chore} on {self.due_date}"
+
+    def clean(self):
+        super().clean()
+        if (
+            self.claimed_by_id is not None
+            and self.chore_id is not None
+            and self.claimed_by.household_id != self.chore.household_id
+        ):
+            raise ValidationError(
+                {
+                    "claimed_by": (
+                        "The member claiming this occurrence must belong to "
+                        "the chore's household."
+                    )
+                }
+            )
 
     @property
     def is_overdue(self):
@@ -378,3 +406,72 @@ class Completion(models.Model):
 
     def __str__(self):
         return f"{self.occurrence} done by {self.completed_by.user}"
+
+
+class ContributionCredit(models.Model):
+    """Records that a helper covered a chore occurrence owned by someone else.
+
+    Written once, at completion time, when the completing member is not the
+    chore's ``primary_owner`` and the chore has an owner at all. ``workload_value``
+    is frozen from the chore's own estimate (not the ``Completion``'s optional
+    actuals) via :func:`chores.fairness.workload_value` and never recomputed here
+    - task #12 owns any reweighting. The occurrence is reachable as
+    ``credit.completion.occurrence``; there is no separate occurrence FK.
+
+    Both FKs use ``on_delete=PROTECT``: a membership with credit history can't be
+    deleted out from under it.
+    """
+
+    completion = models.OneToOneField(
+        Completion,
+        on_delete=models.CASCADE,
+        related_name="credit",
+    )
+    helper = models.ForeignKey(
+        Membership,
+        on_delete=models.PROTECT,
+        related_name="credits_as_helper",
+    )
+    owner = models.ForeignKey(
+        Membership,
+        on_delete=models.PROTECT,
+        related_name="credits_as_owner",
+    )
+    workload_value = models.FloatField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "id"]
+        constraints = [
+            models.CheckConstraint(
+                condition=~Q(helper=F("owner")),
+                name="contributioncredit_helper_ne_owner",
+            ),
+        ]
+
+    def __str__(self):
+        return (
+            f"{self.helper.user} covered {self.owner.user}'s "
+            f"{self.completion.occurrence}"
+        )
+
+    def clean(self):
+        super().clean()
+        if (
+            self.helper_id is not None
+            and self.owner_id is not None
+            and self.helper_id == self.owner_id
+        ):
+            raise ValidationError(
+                "A contribution credit's helper and owner must be different "
+                "members."
+            )
+        if (
+            self.helper_id is not None
+            and self.owner_id is not None
+            and self.helper.household_id != self.owner.household_id
+        ):
+            raise ValidationError(
+                "A contribution credit's helper and owner must belong to the "
+                "same household."
+            )
