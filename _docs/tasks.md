@@ -1,14 +1,18 @@
 # Backlog
 
 The tasks below now live as [GitHub issues](https://github.com/ckcabang/household-chores/issues).
-Each issue carries the full goal and description; this file is just the index and the
-suggested order. The numbering is a recommended sequence, not a hard dependency chain.
+This file is just the index and the suggested order; the numbering is a recommended
+sequence, not a hard dependency chain.
+
+Before implementation, each issue is groomed against [`task-template.md`](task-template.md)
+into a goal, checkable acceptance criteria, out-of-scope items, and constraints — see
+[`process.md`](process.md). The issues as first filed only carry a goal and a short
+description.
 
 Context for every task: the MVP is defined in [`plan.md`](plan.md); the stack and structure
 are set by [`tech-stack-decision.md`](tech-stack-decision.md) — Django 5.1, server-rendered
 templates with HTMX + Alpine, fairness logic in a framework-agnostic `chores/fairness/`
-module. Each task is scoped to a single working session and written to stand on its own;
-where a task builds on an earlier one, its description says what it assumes.
+module. Each task is scoped to a single working session.
 
 | # | Task | Issue |
 |---|------|-------|
