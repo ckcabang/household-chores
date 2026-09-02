@@ -1,0 +1,20 @@
+{% extends "chores/base.html" %}
+
+{% block title %}Log in · Household Chores{% endblock %}
+
+{% block content %}
+  <h1>Log in</h1>
+
+  {% for error in form.non_field_errors %}
+    <p class="form-error">{{ error }}</p>
+  {% endfor %}
+
+  <form method="post" action="{% url 'login' %}">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <input type="hidden" name="next" value="{{ next }}">
+    <button type="submit">Log in</button>
+  </form>
+
+  <p>Need an account? <a href="{% url 'signup' %}">Sign up</a>.</p>
+{% endblock %}

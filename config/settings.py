@@ -109,6 +109,14 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 
+# Authentication
+# https://docs.djangoproject.com/en/5.1/topics/auth/
+
+LOGIN_URL = "login"
+LOGIN_REDIRECT_URL = "chores:home"
+LOGOUT_REDIRECT_URL = "chores:home"
+
+
 # Internationalization
 # https://docs.djangoproject.com/en/5.1/topics/i18n/
 

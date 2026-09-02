@@ -1,0 +1,21 @@
+{% extends "chores/base.html" %}
+
+{% block title %}Sign up · Household Chores{% endblock %}
+
+{% block content %}
+  <h1>Sign up</h1>
+
+  {% if form.non_field_errors %}
+    {% for error in form.non_field_errors %}
+      <p class="form-error">{{ error }}</p>
+    {% endfor %}
+  {% endif %}
+
+  <form method="post" action="{% url 'signup' %}" novalidate>
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Create account</button>
+  </form>
+
+  <p>Already have an account? <a href="{% url 'login' %}">Log in</a>.</p>
+{% endblock %}

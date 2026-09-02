@@ -61,6 +61,7 @@ body {
 
 .site-nav {
   display: flex;
+  align-items: center;
   gap: 1rem;
 }
 
@@ -71,6 +72,38 @@ body {
 
 .site-nav a:hover {
   color: var(--accent);
+}
+
+.site-nav__user {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+.site-nav__logout {
+  margin: 0;
+}
+
+.site-nav__logout button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.site-nav__logout button:hover {
+  color: var(--accent);
+}
+
+.form-error {
+  color: #b3261e;
+}
+
+@media (prefers-color-scheme: dark) {
+  .form-error {
+    color: #f2b8b5;
+  }
 }
 
 .site-main {
