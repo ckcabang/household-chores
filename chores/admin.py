@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Household, Invitation, Membership
+from .models import Chore, Household, Invitation, Membership
 
 
 @admin.register(Household)
@@ -14,6 +14,22 @@ class MembershipAdmin(admin.ModelAdmin):
     list_display = ("id", "user", "household", "created_at")
     list_select_related = ("user", "household")
     search_fields = ("user__username", "household__name")
+
+
+@admin.register(Chore)
+class ChoreAdmin(admin.ModelAdmin):
+    list_display = (
+        "name",
+        "household",
+        "cadence_days",
+        "estimated_minutes",
+        "difficulty",
+        "primary_owner",
+        "allows_multiple_contributors",
+    )
+    list_filter = ("household", "difficulty", "allows_multiple_contributors")
+    list_select_related = ("household", "primary_owner__user")
+    search_fields = ("name", "household__name")
 
 
 @admin.register(Invitation)
