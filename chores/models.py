@@ -335,3 +335,46 @@ class ChoreOccurrence(models.Model):
         if self.status != OCCURRENCE_STATUS_ACTIVE:
             return False
         return self.due_date < timezone.localdate()
+
+
+class Completion(models.Model):
+    """The record that an occurrence was done: who did it and any logged actuals.
+
+    One row per occurrence (``OneToOneField``). ``actual_minutes`` /
+    ``actual_effort`` are optional feedback - the raw data later consumed by
+    fairness (task #13) and estimate learning (task #15). ``actual_effort``
+    reuses the chore ``DIFFICULTY_CHOICES`` scale rather than a new one.
+
+    ``completed_by`` uses ``on_delete=PROTECT``: a membership that has completed
+    something can't be deleted out from under its completion history.
+    """
+
+    occurrence = models.OneToOneField(
+        ChoreOccurrence,
+        on_delete=models.CASCADE,
+        related_name="completion",
+    )
+    completed_by = models.ForeignKey(
+        Membership,
+        on_delete=models.PROTECT,
+        related_name="completions",
+    )
+    actual_minutes = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1)],
+        help_text="How long it actually took, if recorded.",
+    )
+    actual_effort = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        choices=DIFFICULTY_CHOICES,
+        help_text="How hard it actually was, on the chore difficulty scale.",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "id"]
+
+    def __str__(self):
+        return f"{self.occurrence} done by {self.completed_by.user}"

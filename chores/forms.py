@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
 
-from .models import Chore, Household, Membership
+from .models import Chore, Completion, Household, Membership
 
 
 class SignupForm(UserCreationForm):
@@ -67,3 +67,22 @@ class ChoreForm(forms.ModelForm):
         if not name:
             raise forms.ValidationError("Please enter a name for this chore.")
         return name
+
+
+class CompletionForm(forms.ModelForm):
+    """Optional feedback captured when an occurrence is marked done.
+
+    ``completed_by`` and ``occurrence`` are set by the view, never here. Both
+    remaining fields are optional; when supplied they are validated against the
+    model (``actual_minutes`` a positive int, ``actual_effort`` within the
+    shared difficulty scale).
+    """
+
+    class Meta:
+        model = Completion
+        fields = ["actual_minutes", "actual_effort"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["actual_minutes"].required = False
+        self.fields["actual_effort"].required = False

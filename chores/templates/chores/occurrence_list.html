@@ -1,0 +1,78 @@
+{% extends "chores/base.html" %}
+
+{% block title %}Occurrences · Household Chores{% endblock %}
+
+{% block content %}
+  <h1>Occurrences</h1>
+  <p>Outstanding chores for your household. Mark one done when you've finished it.</p>
+
+  {% if occurrences %}
+    <table class="occurrence-list">
+      <thead>
+        <tr>
+          <th scope="col">Chore</th>
+          <th scope="col">Due</th>
+          <th scope="col">Owner</th>
+          <th scope="col">Mark done</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for occurrence in occurrences %}
+          <tr{% if occurrence.is_overdue %} class="occurrence-list__row--overdue"{% endif %}>
+            <td>{{ occurrence.chore.name }}</td>
+            <td>
+              {{ occurrence.due_date }}
+              {% if occurrence.is_overdue %}
+                <span class="occurrence-list__overdue">Overdue</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if occurrence.chore.primary_owner %}
+                {{ occurrence.chore.primary_owner.user.username }}
+              {% else %}
+                &mdash;
+              {% endif %}
+            </td>
+            <td>
+              <form method="post"
+                    action="{% url 'chores:occurrence_complete' occurrence.pk %}"
+                    class="occurrence-complete">
+                {% csrf_token %}
+                {% if complete_form_pk == occurrence.pk %}
+                  {{ complete_form.non_field_errors }}
+                  <label>
+                    Actual minutes
+                    {{ complete_form.actual_minutes }}
+                  </label>
+                  {{ complete_form.actual_minutes.errors }}
+                  <label>
+                    Actual effort
+                    {{ complete_form.actual_effort }}
+                  </label>
+                  {{ complete_form.actual_effort.errors }}
+                {% else %}
+                  <label>
+                    Actual minutes
+                    <input type="number" name="actual_minutes" min="1" inputmode="numeric">
+                  </label>
+                  <label>
+                    Actual effort
+                    <select name="actual_effort">
+                      <option value="">&mdash;</option>
+                      {% for value, label in difficulty_choices %}
+                        <option value="{{ value }}">{{ label }}</option>
+                      {% endfor %}
+                    </select>
+                  </label>
+                {% endif %}
+                <button type="submit">Mark done</button>
+              </form>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p>Nothing due. You're all caught up.</p>
+  {% endif %}
+{% endblock %}
