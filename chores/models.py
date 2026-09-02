@@ -23,6 +23,16 @@ DIFFICULTY_CHOICES = [
 DIFFICULTY_MIN = DIFFICULTY_CHOICES[0][0]
 DIFFICULTY_MAX = DIFFICULTY_CHOICES[-1][0]
 
+# The two ways a household can mark a person against a chore. Defined here as a
+# plain list of ``(value, label)`` pairs - NOT ``models.TextChoices`` - mirroring
+# ``DIFFICULTY_CHOICES`` so the framework-agnostic ``chores/fairness/`` package
+# (task #13) and the assignment algorithm (#14) can import the values without
+# pulling in Django's model layer.
+CONSTRAINT_KIND_CHOICES = [
+    ("prefer", "Preferred"),
+    ("exclude", "Excluded"),
+]
+
 # Namespace for the signed invitation tokens so they can't be swapped in
 # from another ``django.core.signing`` use.
 INVITATION_TOKEN_SALT = "chores.models.Invitation"
@@ -199,6 +209,69 @@ class Chore(models.Model):
                 {
                     "primary_owner": (
                         "The primary owner must be a member of this household."
+                    )
+                }
+            )
+
+    def constraints_summary(self):
+        """A short per-row summary of this chore's constraints for the list.
+
+        Reads from ``self.constraints`` so a caller can ``prefetch_related`` it.
+        """
+        parts = [
+            f"{c.membership.user.username}: {c.get_kind_display().lower()}"
+            for c in self.constraints.all()
+        ]
+        return ", ".join(parts) if parts else "None"
+
+
+class Constraint(models.Model):
+    """Either member's mark that a person is preferred or excluded for a chore.
+
+    This model is storage plus management UI only; the assignment algorithm
+    (task #14) reads these records when it schedules occurrences.
+    """
+
+    chore = models.ForeignKey(
+        Chore,
+        on_delete=models.CASCADE,
+        related_name="constraints",
+    )
+    membership = models.ForeignKey(
+        Membership,
+        on_delete=models.CASCADE,
+        related_name="constraints",
+    )
+    kind = models.CharField(max_length=20, choices=CONSTRAINT_KIND_CHOICES)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["chore", "membership"],
+                name="unique_constraint_per_person_per_chore",
+            ),
+        ]
+
+    def __str__(self):
+        return (
+            f"{self.membership.user} "
+            f"{self.get_kind_display().lower()} for {self.chore}"
+        )
+
+    def clean(self):
+        super().clean()
+        if (
+            self.chore_id is not None
+            and self.membership_id is not None
+            and self.chore.household_id != self.membership.household_id
+        ):
+            raise ValidationError(
+                {
+                    "membership": (
+                        "The person and the chore must belong to the "
+                        "same household."
                     )
                 }
             )
