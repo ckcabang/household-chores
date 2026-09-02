@@ -6,8 +6,11 @@ sequence, not a hard dependency chain.
 
 Before implementation, each issue is groomed against [`task-template.md`](task-template.md)
 into a goal, checkable acceptance criteria, out-of-scope items, and constraints — see
-[`process.md`](process.md). The issues as first filed only carry a goal and a short
-description.
+[`process.md`](process.md).
+
+Tasks 4–21 have been groomed; the groomed text lives in [`groomed/`](groomed/) and on the
+issues themselves. Out-of-scope items are tracked as follow-up issues #22–#33, indexed in
+[`groomed/follow-ups.md`](groomed/follow-ups.md).
 
 Context for every task: the MVP is defined in [`plan.md`](plan.md); the stack and structure
 are set by [`tech-stack-decision.md`](tech-stack-decision.md) — Django 5.1, server-rendered
@@ -37,3 +40,22 @@ module. Each task is scoped to a single working session.
 | 19 | AI setup — review and apply | [#19](https://github.com/ckcabang/household-chores/issues/19) |
 | 20 | Admin coverage and demo data | [#20](https://github.com/ckcabang/household-chores/issues/20) |
 | 21 | Production deployment configuration | [#21](https://github.com/ckcabang/household-chores/issues/21) |
+
+## Follow-ups (not on the MVP path)
+
+Filed while grooming; each needs its own grooming pass before implementation.
+
+| # | Task | Issue |
+|---|------|-------|
+| 22 | Password reset flow | [#22](https://github.com/ckcabang/household-chores/issues/22) |
+| 23 | Collect and verify email on signup | [#23](https://github.com/ckcabang/household-chores/issues/23) |
+| 24 | Throttle failed login attempts | [#24](https://github.com/ckcabang/household-chores/issues/24) |
+| 25 | Leave or dissolve a household | [#25](https://github.com/ckcabang/household-chores/issues/25) |
+| 26 | Revoke and regenerate invitations | [#26](https://github.com/ckcabang/household-chores/issues/26) |
+| 27 | Reconcile occurrences when cadence changes | [#27](https://github.com/ckcabang/household-chores/issues/27) |
+| 28 | Undo a completion | [#28](https://github.com/ckcabang/household-chores/issues/28) |
+| 29 | Apply rebalance proposals | [#29](https://github.com/ckcabang/household-chores/issues/29) |
+| 30 | Fairness weight change history | [#30](https://github.com/ckcabang/household-chores/issues/30) |
+| 31 | Dashboard contribution charts | [#31](https://github.com/ckcabang/household-chores/issues/31) |
+| 32 | Regenerate AI setup draft | [#32](https://github.com/ckcabang/household-chores/issues/32) |
+| 33 | Continuous deployment workflow | [#33](https://github.com/ckcabang/household-chores/issues/33) |
