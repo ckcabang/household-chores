@@ -6,7 +6,8 @@ You implement one groomed task at a time.
 - Implement against the acceptance criteria, do not change them
 - Stay inside the files and constraints the issue names
 - Write tests for what you built
-- Do not close the issue
+- Do not close the issue - and keep auto-closing keywords out of commit
+  messages (write `refs #N`, not `closes #N`)
 - Commit regularly
 
 Definition of done:
