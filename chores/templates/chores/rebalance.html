@@ -1,0 +1,65 @@
+{% extends "chores/base.html" %}
+
+{% block title %}Rebalance · Household Chores{% endblock %}
+
+{% block content %}
+  <h1>Rebalance preview</h1>
+  <p>
+    What automatic assignment would propose right now, moving toward an equal
+    workload. Nothing here is saved &mdash; it is a preview only.
+  </p>
+
+  <h2>Projected balance</h2>
+  <table class="balance">
+    <thead>
+      <tr><th scope="col">Member</th><th scope="col">Now</th><th scope="col">After</th></tr>
+    </thead>
+    <tbody>
+      {% for now_row in current_balance %}
+        <tr>
+          <td>{{ now_row.member.user.username }}</td>
+          <td>{{ now_row.workload|floatformat:1 }}</td>
+          <td>
+            {% for after_row in projected_balance %}
+              {% if after_row.member.pk == now_row.member.pk %}{{ after_row.workload|floatformat:1 }}{% endif %}
+            {% endfor %}
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <h2>Per chore</h2>
+  {% if rows %}
+    <table class="rebalance">
+      <thead>
+        <tr>
+          <th scope="col">Chore</th>
+          <th scope="col">Current owner</th>
+          <th scope="col">Proposed owner</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+          <tr{% if row.changed %} class="rebalance__row--changed"{% endif %}>
+            <td>{{ row.chore.name }}</td>
+            <td>
+              {% if row.current_owner %}{{ row.current_owner.user.username }}{% else %}&mdash;{% endif %}
+            </td>
+            <td>
+              {% if row.unassignable %}
+                <span class="rebalance__unassignable">Unassignable (both excluded)</span>
+              {% elif row.proposed_owner %}
+                {{ row.proposed_owner.user.username }}
+              {% else %}
+                &mdash;
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p>No upcoming chores to assign.</p>
+  {% endif %}
+{% endblock %}

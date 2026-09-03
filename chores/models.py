@@ -13,6 +13,7 @@ from .fairness import (
     HALF_LIFE_MIN_DAYS,
     WEIGHT_MAX,
     WEIGHT_MIN,
+    FairnessParams,
     weight_errors,
 )
 
@@ -135,6 +136,14 @@ class FairnessWeights(WeightValues):
 
     def __str__(self):
         return f"Fairness weights for {self.household}"
+
+    def as_params(self):
+        """This row as a framework-agnostic :class:`FairnessParams`."""
+        return FairnessParams(
+            time_weight=self.time_weight,
+            difficulty_weight=self.difficulty_weight,
+            decay_half_life_days=self.decay_half_life_days,
+        )
 
 
 class Membership(models.Model):

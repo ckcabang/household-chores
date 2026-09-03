@@ -20,6 +20,7 @@
           <a href="{% url 'chores:chore_list' %}">Chores</a>
           <a href="{% url 'chores:occurrence_list' %}">Occurrences</a>
           <a href="{% url 'chores:fairness_edit' %}">Fairness</a>
+          <a href="{% url 'chores:rebalance' %}">Rebalance</a>
         {% endif %}
         {% if user.is_authenticated %}
           {% if not current_household %}

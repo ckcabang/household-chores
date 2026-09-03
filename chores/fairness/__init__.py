@@ -4,6 +4,12 @@ Importing this package must not touch Django settings or the ORM. Keep every
 module here free of ``django.*`` and ``chores.models`` imports.
 """
 
+from .assignment import (
+    AssignableChore,
+    AssignmentResult,
+    ChoreProposal,
+    propose_assignments,
+)
 from .balance import (
     WorkItem,
     decay_factor,
@@ -29,7 +35,10 @@ from .workload import (
 )
 
 __all__ = [
+    "AssignableChore",
+    "AssignmentResult",
     "BASELINE_DIFFICULTY",
+    "ChoreProposal",
     "DEFAULT_DECAY_HALF_LIFE_DAYS",
     "DEFAULT_DIFFICULTY_WEIGHT",
     "DEFAULT_TIME_WEIGHT",
@@ -43,6 +52,7 @@ __all__ = [
     "WorkloadWeights",
     "decay_factor",
     "member_workloads",
+    "propose_assignments",
     "weight_errors",
     "who_is_ahead",
     "workload_value",

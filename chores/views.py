@@ -21,7 +21,13 @@ from django.views.generic import (
     UpdateView,
 )
 
-from .fairness import workload_value
+from .fairness import propose_assignments, workload_value
+from .services import (
+    assignable_chores,
+    household_constraints,
+    household_params,
+    household_workloads,
+)
 from .forms import (
     ChoreForm,
     CompletionForm,
@@ -398,6 +404,61 @@ class FairnessWeightsUpdateView(HouseholdScopedMixin, UpdateView):
         response = super().form_valid(form)
         messages.success(self.request, "Fairness weights updated.")
         return response
+
+
+class RebalanceView(HouseholdScopedMixin, TemplateView):
+    """Preview an automatic reassignment of upcoming chores. Writes nothing.
+
+    Shows, per chore with an active occurrence, the current owner vs the owner
+    the fairness algorithm would propose, plus the projected per-member balance
+    before and after. Applying the proposal is follow-up #29.
+    """
+
+    template_name = "chores/rebalance.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        now = timezone.now()
+        params = household_params(self.household)
+        current = household_workloads(self.household, now)
+        chores = assignable_chores(self.household, params)
+        result = propose_assignments(
+            chores, current, household_constraints(self.household)
+        )
+
+        memberships = {
+            m.pk: m
+            for m in self.household.memberships.select_related("user")
+        }
+        chore_objs = {
+            c.pk: c
+            for c in Chore.objects.filter(
+                pk__in=[c.id for c in chores]
+            ).select_related("primary_owner__user")
+        }
+
+        context["rows"] = [
+            {
+                "chore": chore_objs[p.chore_id],
+                "current_owner": memberships.get(p.current_owner_id),
+                "proposed_owner": memberships.get(p.proposed_owner_id),
+                "unassignable": p.unassignable,
+                "changed": (
+                    not p.unassignable
+                    and p.proposed_owner_id != p.current_owner_id
+                ),
+            }
+            for p in result.proposals
+        ]
+        context["current_balance"] = [
+            {"member": memberships[mid], "workload": current.get(mid, 0.0)}
+            for mid in memberships
+        ]
+        context["projected_balance"] = [
+            {"member": memberships[mid], "workload": result.projected.get(mid, 0.0)}
+            for mid in memberships
+        ]
+        return context
 
 
 def _active_occurrences(household):
