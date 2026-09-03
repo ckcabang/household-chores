@@ -22,12 +22,13 @@ from django.views.generic import (
     UpdateView,
 )
 
-from .fairness import propose_assignments, workload_value
+from .fairness import propose_assignments, who_is_ahead, workload_value
 from .services import (
     assignable_chores,
     household_constraints,
     household_params,
     household_workloads,
+    recent_contribution,
 )
 from .forms import (
     ChoreForm,
@@ -389,6 +390,67 @@ class ConstraintDeleteView(HouseholdScopedMixin, View):
         return redirect("chores:chore_edit", pk=chore.pk)
 
 
+class DashboardView(HouseholdScopedMixin, TemplateView):
+    """One read-mostly screen: upcoming occurrences, the fairness balance, and
+    a short recent-contribution summary.
+
+    The only mutation is the per-row "mark done" shortcut, which reuses
+    ``OccurrenceCompleteView`` and returns here via ``?next=``.
+    """
+
+    template_name = "chores/dashboard.html"
+
+    # Overdue occurrences plus everything due within this many days.
+    WINDOW_DAYS = 14
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        now = timezone.now()
+        today = timezone.localdate()
+        horizon = today + timedelta(days=self.WINDOW_DAYS)
+
+        context["occurrences"] = list(
+            ChoreOccurrence.objects.filter(
+                chore__household=self.household,
+                status=OCCURRENCE_STATUS_ACTIVE,
+                due_date__lte=horizon,
+            )
+            .select_related("chore", "chore__primary_owner__user")
+            .order_by("due_date", "id")
+        )
+
+        memberships = list(
+            self.household.memberships.select_related("user")
+        )
+        workloads = household_workloads(self.household, now)
+        ahead_id = who_is_ahead(workloads)
+        context["balance"] = [
+            {
+                "member": m,
+                "workload": workloads.get(m.pk, 0.0),
+                "is_ahead": m.pk == ahead_id,
+            }
+            for m in memberships
+        ]
+        context["balance_is_even"] = ahead_id is None
+
+        summary = recent_contribution(self.household, now)
+        context["contribution"] = [
+            {
+                "member": m,
+                "completions": summary.get(m.pk, {}).get("completions", 0),
+                "credits": summary.get(m.pk, {}).get("credits", 0),
+            }
+            for m in memberships
+        ]
+        context["history_is_empty"] = all(
+            row["completions"] == 0 and row["credits"] == 0
+            for row in context["contribution"]
+        )
+        context["dashboard_next"] = reverse("chores:dashboard")
+        return context
+
+
 class FairnessWeightsView(HouseholdScopedMixin, TemplateView):
     """Read-only view of the household's fairness weights.
 
@@ -739,6 +801,10 @@ class OccurrenceCompleteView(HouseholdScopedMixin, View):
 
     http_method_names = ["post"]
 
+    def _done_redirect(self, request):
+        """Back to a safe ``next`` (e.g. the dashboard) or the occurrence list."""
+        return redirect(_safe_next(request) or reverse("chores:occurrence_list"))
+
     def post(self, request, pk):
         occurrence = get_object_or_404(
             ChoreOccurrence, pk=pk, chore__household=self.household
@@ -746,7 +812,7 @@ class OccurrenceCompleteView(HouseholdScopedMixin, View):
 
         if occurrence.status == OCCURRENCE_STATUS_COMPLETED:
             messages.info(request, "That occurrence is already marked done.")
-            return redirect("chores:occurrence_list")
+            return self._done_redirect(request)
 
         form = CompletionForm(request.POST)
         if not form.is_valid():
@@ -796,7 +862,7 @@ class OccurrenceCompleteView(HouseholdScopedMixin, View):
         messages.success(
             request, f"Marked “{occurrence.chore.name}” done."
         )
-        return redirect("chores:occurrence_list")
+        return self._done_redirect(request)
 
 
 class OccurrenceClaimView(HouseholdScopedMixin, View):

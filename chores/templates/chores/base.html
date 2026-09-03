@@ -15,8 +15,8 @@
       <a class="site-title" href="{% url 'chores:home' %}">Household Chores</a>
       <nav class="site-nav" aria-label="Primary">
         <a href="{% url 'chores:home' %}">Home</a>
-        {# The Dashboard link is added by its own task. #}
         {% if current_household %}
+          <a href="{% url 'chores:dashboard' %}">Dashboard</a>
           <a href="{% url 'chores:chore_list' %}">Chores</a>
           <a href="{% url 'chores:occurrence_list' %}">Occurrences</a>
           <a href="{% url 'chores:fairness_edit' %}">Fairness</a>

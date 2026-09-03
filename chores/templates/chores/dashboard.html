@@ -1,0 +1,88 @@
+{% extends "chores/base.html" %}
+
+{% block title %}Dashboard · Household Chores{% endblock %}
+
+{% block content %}
+  <h1>{{ current_household.name }}</h1>
+
+  <section class="dashboard-balance">
+    <h2>Fairness balance</h2>
+    <p>Decayed workload over the last 90 days.</p>
+    <table class="balance">
+      <thead>
+        <tr><th scope="col">Member</th><th scope="col">Workload</th></tr>
+      </thead>
+      <tbody>
+        {% for row in balance %}
+          <tr>
+            <td>{{ row.member.user.username }}{% if row.is_ahead %} <span class="balance__ahead">(ahead)</span>{% endif %}</td>
+            <td>{{ row.workload|floatformat:1 }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% if balance_is_even %}<p>The two of you are even.</p>{% endif %}
+  </section>
+
+  <section class="dashboard-contribution">
+    <h2>Recent contribution (30 days)</h2>
+    {% if history_is_empty %}
+      <p>Nothing completed in the last 30 days.</p>
+    {% else %}
+      <table class="contribution">
+        <thead>
+          <tr><th scope="col">Member</th><th scope="col">Completed</th><th scope="col">Helped (credits)</th></tr>
+        </thead>
+        <tbody>
+          {% for row in contribution %}
+            <tr>
+              <td>{{ row.member.user.username }}</td>
+              <td>{{ row.completions }}</td>
+              <td>{{ row.credits }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% endif %}
+  </section>
+
+  <section class="dashboard-occurrences">
+    <h2>Due now and soon</h2>
+    {% if occurrences %}
+      <table class="occurrence-list">
+        <thead>
+          <tr>
+            <th scope="col">Chore</th>
+            <th scope="col">Due</th>
+            <th scope="col">Owner</th>
+            <th scope="col">Status</th>
+            <th scope="col"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for occurrence in occurrences %}
+            <tr{% if occurrence.is_overdue %} class="occurrence-list__row--overdue"{% endif %}>
+              <td>{{ occurrence.chore.name }}</td>
+              <td>{{ occurrence.due_date }}</td>
+              <td>
+                {% if occurrence.chore.primary_owner %}
+                  {{ occurrence.chore.primary_owner.user.username }}
+                {% else %}&mdash;{% endif %}
+              </td>
+              <td>{% if occurrence.is_overdue %}Overdue{% else %}Active{% endif %}</td>
+              <td>
+                <form method="post" action="{% url 'chores:occurrence_complete' occurrence.pk %}">
+                  {% csrf_token %}
+                  <input type="hidden" name="next" value="{{ dashboard_next }}">
+                  <button type="submit">Mark done</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p>Nothing due in the next {{ view.WINDOW_DAYS }} days.</p>
+    {% endif %}
+  </section>
+{% endblock %}

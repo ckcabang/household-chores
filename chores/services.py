@@ -5,11 +5,14 @@ Views and commands call these; the fairness package itself stays Django-free.
 
 from datetime import timedelta
 
+from django.db.models import Count
+
 from .fairness import AssignableChore, WorkItem, member_workloads, workload_value
 from .models import (
     OCCURRENCE_STATUS_ACTIVE,
     Completion,
     Constraint,
+    ContributionCredit,
     FairnessWeights,
 )
 
@@ -17,6 +20,9 @@ from .models import (
 # decay half-life (default 30 days) already fades older items; 90 days keeps a
 # couple of half-lives of history in view.
 BALANCE_WINDOW_DAYS = 90
+
+# The dashboard's plain-count "recent contribution" summary looks back this far.
+HISTORY_WINDOW_DAYS = 30
 
 
 def household_params(household):
@@ -75,3 +81,41 @@ def household_constraints(household):
             "membership_id", "chore_id", "kind"
         )
     )
+
+
+def recent_contribution(household, now, window_days=HISTORY_WINDOW_DAYS):
+    """Plain counts per member over the trailing window: completions and the
+    contribution credits they earned by helping.
+
+    Returns ``{membership_id: {"completions": int, "credits": int}}``.
+    """
+    since = now - timedelta(days=window_days)
+    summary = {
+        mid: {"completions": 0, "credits": 0}
+        for mid in household.memberships.values_list("id", flat=True)
+    }
+
+    completions = (
+        Completion.objects.filter(
+            occurrence__chore__household=household,
+            occurrence__completed_at__gte=since,
+        )
+        .values("completed_by_id")
+        .annotate(n=Count("id"))
+    )
+    for row in completions:
+        if row["completed_by_id"] in summary:
+            summary[row["completed_by_id"]]["completions"] = row["n"]
+
+    credits = (
+        ContributionCredit.objects.filter(
+            helper__household=household, created_at__gte=since
+        )
+        .values("helper_id")
+        .annotate(n=Count("id"))
+    )
+    for row in credits:
+        if row["helper_id"] in summary:
+            summary[row["helper_id"]]["credits"] = row["n"]
+
+    return summary
