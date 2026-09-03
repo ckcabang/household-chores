@@ -15,8 +15,28 @@ urlpatterns = [
     ),
     path(
         "household/fairness/",
-        views.FairnessWeightsUpdateView.as_view(),
+        views.FairnessWeightsView.as_view(),
         name="fairness_edit",
+    ),
+    path(
+        "household/fairness/proposals/new/",
+        views.WeightProposalCreateView.as_view(),
+        name="weight_proposal_create",
+    ),
+    path(
+        "household/fairness/proposals/<int:pk>/",
+        views.WeightProposalDetailView.as_view(),
+        name="weight_proposal_detail",
+    ),
+    path(
+        "household/fairness/proposals/<int:pk>/approve/",
+        views.WeightProposalApproveView.as_view(),
+        name="weight_proposal_approve",
+    ),
+    path(
+        "household/fairness/proposals/<int:pk>/reject/",
+        views.WeightProposalRejectView.as_view(),
+        name="weight_proposal_reject",
     ),
     path(
         "household/rebalance/",

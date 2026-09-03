@@ -1,0 +1,18 @@
+{% extends "chores/base.html" %}
+
+{% block title %}Propose fairness weights · Household Chores{% endblock %}
+
+{% block content %}
+  <h1>Propose new fairness weights</h1>
+  <p>
+    Pre-filled with the current values. Creating the proposal counts as your
+    approval; it applies when the other member approves too.
+  </p>
+
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Create proposal</button>
+    <a href="{% url 'chores:fairness_edit' %}">Cancel</a>
+  </form>
+{% endblock %}

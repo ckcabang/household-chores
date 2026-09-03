@@ -11,6 +11,7 @@ from .models import (
     Household,
     Invitation,
     Membership,
+    WeightProposal,
 )
 
 
@@ -116,6 +117,25 @@ class EstimateProposalAdmin(admin.ModelAdmin):
     list_filter = ("status", "chore__household")
     list_select_related = ("chore", "decided_by__user")
     search_fields = ("chore__name", "rationale")
+    date_hierarchy = "created_at"
+
+
+@admin.register(WeightProposal)
+class WeightProposalAdmin(admin.ModelAdmin):
+    list_display = (
+        "household",
+        "time_weight",
+        "difficulty_weight",
+        "decay_half_life_days",
+        "status",
+        "created_by",
+        "created_at",
+        "resolved_at",
+    )
+    list_filter = ("status", "household")
+    list_select_related = ("household", "created_by__user")
+    filter_horizontal = ("approved_by",)
+    search_fields = ("household__name",)
     date_hierarchy = "created_at"
 
 

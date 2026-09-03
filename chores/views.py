@@ -16,6 +16,7 @@ from django.views import View
 from django.views.generic import (
     CreateView,
     DeleteView,
+    DetailView,
     ListView,
     TemplateView,
     UpdateView,
@@ -31,9 +32,9 @@ from .services import (
 from .forms import (
     ChoreForm,
     CompletionForm,
-    FairnessWeightsForm,
     HouseholdForm,
     SignupForm,
+    WeightProposalForm,
 )
 from .models import (
     CONSTRAINT_KIND_CHOICES,
@@ -43,6 +44,7 @@ from .models import (
     PROPOSAL_STATUS_ACCEPTED,
     PROPOSAL_STATUS_DISMISSED,
     PROPOSAL_STATUS_PENDING,
+    WEIGHT_PROPOSAL_STATUS_OPEN,
     Chore,
     ChoreOccurrence,
     Constraint,
@@ -51,6 +53,7 @@ from .models import (
     FairnessWeights,
     Invitation,
     Membership,
+    WeightProposal,
 )
 from .proposals import generate_estimate_proposals
 
@@ -386,29 +389,153 @@ class ConstraintDeleteView(HouseholdScopedMixin, View):
         return redirect("chores:chore_edit", pk=chore.pk)
 
 
-class FairnessWeightsUpdateView(HouseholdScopedMixin, UpdateView):
-    """Show and edit the current household's single ``FairnessWeights`` row.
+class FairnessWeightsView(HouseholdScopedMixin, TemplateView):
+    """Read-only view of the household's fairness weights.
 
-    ``HouseholdScopedMixin`` sends an anonymous visitor to login and a
-    signed-in user with no household to onboarding, so the object is always
-    the acting member's own household's row - there is no pk in the URL.
+    Direct editing was removed in task #16: changes now go through a
+    :class:`WeightProposal` that both members approve. This screen shows the
+    current values and links to the open proposal (or to create one).
     """
 
-    model = FairnessWeights
-    form_class = FairnessWeightsForm
-    template_name = "chores/fairness_form.html"
-    success_url = reverse_lazy("chores:fairness_edit")
+    template_name = "chores/fairness.html"
 
-    def get_object(self, queryset=None):
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["weights"], _ = FairnessWeights.objects.get_or_create(
+            household=self.household
+        )
+        context["open_proposal"] = self.household.weight_proposals.filter(
+            status=WEIGHT_PROPOSAL_STATUS_OPEN
+        ).first()
+        return context
+
+
+class _WeightProposalScopedMixin(HouseholdScopedMixin):
+    def get_proposal(self, pk):
+        return get_object_or_404(
+            WeightProposal, pk=pk, household=self.household
+        )
+
+
+class WeightProposalCreateView(HouseholdScopedMixin, CreateView):
+    """Propose new fairness weights, pre-filled with the current values.
+
+    Blocked (redirect with a message) when the household already has an open
+    proposal - only one at a time.
+    """
+
+    model = WeightProposal
+    form_class = WeightProposalForm
+    template_name = "chores/weight_proposal_form.html"
+
+    def get(self, request, *args, **kwargs):
+        blocked = self._blocked_redirect()
+        return blocked or super().get(request, *args, **kwargs)
+
+    def post(self, request, *args, **kwargs):
+        blocked = self._blocked_redirect()
+        return blocked or super().post(request, *args, **kwargs)
+
+    def _blocked_redirect(self):
+        existing = self.household.weight_proposals.filter(
+            status=WEIGHT_PROPOSAL_STATUS_OPEN
+        ).first()
+        if existing:
+            messages.info(
+                self.request,
+                "There's already an open weight proposal. Resolve it first.",
+            )
+            return redirect("chores:weight_proposal_detail", pk=existing.pk)
+        return None
+
+    def get_initial(self):
         weights, _ = FairnessWeights.objects.get_or_create(
             household=self.household
         )
-        return weights
+        return {
+            "time_weight": weights.time_weight,
+            "difficulty_weight": weights.difficulty_weight,
+            "decay_half_life_days": weights.decay_half_life_days,
+        }
 
     def form_valid(self, form):
+        form.instance.household = self.household
+        form.instance.created_by = self.membership
         response = super().form_valid(form)
-        messages.success(self.request, "Fairness weights updated.")
+        # The proposer approves by creating it.
+        self.object.approved_by.add(self.membership)
+        messages.success(
+            self.request,
+            "Proposal created. It applies once the other member approves.",
+        )
         return response
+
+    def get_success_url(self):
+        return reverse("chores:weight_proposal_detail", args=[self.object.pk])
+
+
+class WeightProposalDetailView(_WeightProposalScopedMixin, DetailView):
+    """Proposed vs current values and each member's approval state."""
+
+    template_name = "chores/weight_proposal_detail.html"
+    context_object_name = "proposal"
+
+    def get_object(self, queryset=None):
+        return self.get_proposal(self.kwargs["pk"])
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        weights, _ = FairnessWeights.objects.get_or_create(
+            household=self.household
+        )
+        context["weights"] = weights
+        approved_ids = set(
+            self.object.approved_by.values_list("id", flat=True)
+        )
+        context["approvals"] = [
+            {"member": m, "approved": m.pk in approved_ids}
+            for m in self.household.memberships.select_related("user")
+        ]
+        context["viewer_has_approved"] = self.membership.pk in approved_ids
+        return context
+
+
+class WeightProposalApproveView(_WeightProposalScopedMixin, View):
+    """POST-only: record the acting member's approval; apply if both agree."""
+
+    http_method_names = ["post"]
+
+    def post(self, request, pk):
+        proposal = self.get_proposal(pk)
+        if not proposal.is_open:
+            messages.info(request, "That proposal is already closed.")
+            return redirect("chores:weight_proposal_detail", pk=proposal.pk)
+
+        proposal.approved_by.add(self.membership)
+        if proposal.is_fully_approved():
+            proposal.apply()
+            messages.success(request, "Both approved - fairness weights updated.")
+        else:
+            messages.success(
+                request, "Approval recorded. Waiting for the other member."
+            )
+        return redirect("chores:weight_proposal_detail", pk=proposal.pk)
+
+
+class WeightProposalRejectView(_WeightProposalScopedMixin, View):
+    """POST-only: reject the proposal; weights are left unchanged."""
+
+    http_method_names = ["post"]
+
+    def post(self, request, pk):
+        proposal = self.get_proposal(pk)
+        if not proposal.is_open:
+            messages.info(request, "That proposal is already closed.")
+            return redirect("chores:weight_proposal_detail", pk=proposal.pk)
+
+        proposal.reject()
+        messages.success(request, "Proposal rejected. Weights unchanged.")
+        return redirect("chores:weight_proposal_detail", pk=proposal.pk)
 
 
 class RebalanceView(HouseholdScopedMixin, TemplateView):

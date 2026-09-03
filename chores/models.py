@@ -70,6 +70,17 @@ ESTIMATE_PROPOSAL_STATUS_CHOICES = [
     (PROPOSAL_STATUS_DISMISSED, "Dismissed"),
 ]
 
+# A fairness-weight change proposal (task #16) needs both members' approval
+# before it is applied, so it has its own small lifecycle.
+WEIGHT_PROPOSAL_STATUS_OPEN = "open"
+WEIGHT_PROPOSAL_STATUS_APPLIED = "applied"
+WEIGHT_PROPOSAL_STATUS_REJECTED = "rejected"
+WEIGHT_PROPOSAL_STATUS_CHOICES = [
+    (WEIGHT_PROPOSAL_STATUS_OPEN, "Open"),
+    (WEIGHT_PROPOSAL_STATUS_APPLIED, "Applied"),
+    (WEIGHT_PROPOSAL_STATUS_REJECTED, "Rejected"),
+]
+
 # Namespace for the signed invitation tokens so they can't be swapped in
 # from another ``django.core.signing`` use.
 INVITATION_TOKEN_SALT = "chores.models.Invitation"
@@ -621,3 +632,83 @@ class EstimateProposal(models.Model):
     @property
     def is_pending(self):
         return self.status == PROPOSAL_STATUS_PENDING
+
+
+class WeightProposal(WeightValues):
+    """Proposed fairness weights plus each member's approval.
+
+    The values are copied onto the household's ``FairnessWeights`` only once
+    both members approve (:meth:`apply`, one atomic block). Either member
+    rejecting closes it with the weights untouched. At most one ``open``
+    proposal per household (a partial unique constraint).
+    """
+
+    household = models.ForeignKey(
+        "Household",
+        on_delete=models.CASCADE,
+        related_name="weight_proposals",
+    )
+    created_by = models.ForeignKey(
+        Membership,
+        on_delete=models.PROTECT,
+        related_name="weight_proposals_created",
+    )
+    approved_by = models.ManyToManyField(
+        Membership,
+        related_name="weight_proposals_approved",
+        blank=True,
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=WEIGHT_PROPOSAL_STATUS_CHOICES,
+        default=WEIGHT_PROPOSAL_STATUS_OPEN,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["household"],
+                condition=Q(status=WEIGHT_PROPOSAL_STATUS_OPEN),
+                name="one_open_weight_proposal_per_household",
+            ),
+        ]
+
+    def __str__(self):
+        return f"Weight proposal for {self.household} ({self.status})"
+
+    @property
+    def is_open(self):
+        return self.status == WEIGHT_PROPOSAL_STATUS_OPEN
+
+    def is_fully_approved(self):
+        """True once every current household member has approved."""
+        member_ids = set(
+            self.household.memberships.values_list("id", flat=True)
+        )
+        approved_ids = set(self.approved_by.values_list("id", flat=True))
+        return bool(member_ids) and member_ids <= approved_ids
+
+    def apply(self):
+        """Write the proposed values onto the household and close as applied."""
+        from django.db import transaction
+
+        with transaction.atomic():
+            weights, _ = FairnessWeights.objects.get_or_create(
+                household=self.household
+            )
+            weights.time_weight = self.time_weight
+            weights.difficulty_weight = self.difficulty_weight
+            weights.decay_half_life_days = self.decay_half_life_days
+            weights.full_clean()
+            weights.save()
+            self.status = WEIGHT_PROPOSAL_STATUS_APPLIED
+            self.resolved_at = timezone.now()
+            self.save(update_fields=["status", "resolved_at"])
+
+    def reject(self):
+        self.status = WEIGHT_PROPOSAL_STATUS_REJECTED
+        self.resolved_at = timezone.now()
+        self.save(update_fields=["status", "resolved_at"])

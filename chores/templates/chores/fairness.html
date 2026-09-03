@@ -1,0 +1,31 @@
+{% extends "chores/base.html" %}
+
+{% block title %}Fairness weights · Household Chores{% endblock %}
+
+{% block content %}
+  <h1>Fairness weights</h1>
+  <p>
+    These decide how {{ current_household.name }}'s workload is balanced.
+    Changing them needs both members to agree, so edits go through a proposal.
+  </p>
+
+  <dl class="fairness">
+    <dt>Time weight</dt>
+    <dd>{{ weights.time_weight }} &mdash; multiplies a chore's estimated minutes.</dd>
+    <dt>Difficulty weight</dt>
+    <dd>{{ weights.difficulty_weight }} &mdash; how far difficulty pushes workload above or below the minutes.</dd>
+    <dt>Decay half-life</dt>
+    <dd>{{ weights.decay_half_life_days }} days &mdash; how long until a past contribution counts for half.</dd>
+  </dl>
+
+  {% if open_proposal %}
+    <p>
+      There is an open proposal to change these.
+      <a href="{% url 'chores:weight_proposal_detail' open_proposal.pk %}">Review it</a>.
+    </p>
+  {% else %}
+    <p>
+      <a href="{% url 'chores:weight_proposal_create' %}">Propose new weights</a>
+    </p>
+  {% endif %}
+{% endblock %}

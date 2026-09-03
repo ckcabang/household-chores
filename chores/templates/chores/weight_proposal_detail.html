@@ -1,0 +1,44 @@
+{% extends "chores/base.html" %}
+
+{% block title %}Weight proposal · Household Chores{% endblock %}
+
+{% block content %}
+  <h1>Weight proposal</h1>
+  <p>Status: <strong>{{ proposal.get_status_display }}</strong>,
+     created by {{ proposal.created_by.user.username }}.</p>
+
+  <table class="weight-proposal">
+    <thead>
+      <tr><th scope="col">Weight</th><th scope="col">Current</th><th scope="col">Proposed</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Time weight</td><td>{{ weights.time_weight }}</td><td>{{ proposal.time_weight }}</td></tr>
+      <tr><td>Difficulty weight</td><td>{{ weights.difficulty_weight }}</td><td>{{ proposal.difficulty_weight }}</td></tr>
+      <tr><td>Decay half-life (days)</td><td>{{ weights.decay_half_life_days }}</td><td>{{ proposal.decay_half_life_days }}</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Approvals</h2>
+  <ul>
+    {% for row in approvals %}
+      <li>{{ row.member.user.username }}: {% if row.approved %}approved{% else %}not yet{% endif %}</li>
+    {% endfor %}
+  </ul>
+
+  {% if proposal.is_open %}
+    {% if not viewer_has_approved %}
+      <form method="post" action="{% url 'chores:weight_proposal_approve' proposal.pk %}" style="display:inline">
+        {% csrf_token %}
+        <button type="submit">Approve</button>
+      </form>
+    {% endif %}
+    <form method="post" action="{% url 'chores:weight_proposal_reject' proposal.pk %}" style="display:inline">
+      {% csrf_token %}
+      <button type="submit">Reject</button>
+    </form>
+  {% else %}
+    <p>This proposal is closed.</p>
+  {% endif %}
+
+  <p><a href="{% url 'chores:fairness_edit' %}">Back to fairness weights</a></p>
+{% endblock %}

@@ -104,7 +104,7 @@ def test_signal_is_idempotent_for_an_existing_row(nest):
     assert FairnessWeights.objects.filter(household=nest).count() == 1
 
 
-# --- the edit view -------------------------------------------------
+# --- the (read-only since task #16) fairness screen ---------------
 
 
 @pytest.mark.django_db
@@ -114,8 +114,10 @@ def test_get_shows_current_values_to_a_member(client, signed_in_alice, nest, edi
 
     response = client.get(edit_url)
     assert response.status_code == 200
-    assert b'name="time_weight"' in response.content
     assert b"0.7" in response.content
+    # Editing is now via a proposal, not a direct form.
+    assert b'name="time_weight"' not in response.content
+    assert reverse("chores:weight_proposal_create").encode() in response.content
 
 
 @pytest.mark.django_db
@@ -131,52 +133,6 @@ def test_user_with_no_household_is_redirected_to_onboarding(client, alice, edit_
     response = client.get(edit_url)
     assert response.status_code == 302
     assert response.url == reverse("chores:household_create")
-
-
-@pytest.mark.django_db
-def test_valid_post_updates_the_row_and_reports_success(
-    client, signed_in_alice, nest, edit_url
-):
-    response = client.post(
-        edit_url,
-        {
-            "time_weight": "0.5",
-            "difficulty_weight": "2.0",
-            "decay_half_life_days": "45",
-        },
-        follow=True,
-    )
-    assert response.status_code == 200
-    assert any("updated" in str(m) for m in response.context["messages"])
-
-    weights = nest.fairness_weights
-    weights.refresh_from_db()
-    assert weights.time_weight == 0.5
-    assert weights.difficulty_weight == 2.0
-    assert weights.decay_half_life_days == 45
-
-
-@pytest.mark.django_db
-@pytest.mark.parametrize(
-    "payload",
-    [
-        {"time_weight": "0.5", "difficulty_weight": "1.0", "decay_half_life_days": "0"},
-        {"time_weight": "0.5", "difficulty_weight": "1.0", "decay_half_life_days": "-3"},
-        {"time_weight": "-1", "difficulty_weight": "1.0", "decay_half_life_days": "30"},
-        {"time_weight": "1.0", "difficulty_weight": "999", "decay_half_life_days": "30"},
-    ],
-)
-def test_invalid_post_is_rejected_and_changes_nothing(
-    client, signed_in_alice, nest, edit_url, payload
-):
-    before = nest.fairness_weights
-    response = client.post(edit_url, payload)
-    assert response.status_code == 200
-
-    after = FairnessWeights.objects.get(household=nest)
-    assert after.time_weight == before.time_weight
-    assert after.difficulty_weight == before.difficulty_weight
-    assert after.decay_half_life_days == before.decay_half_life_days
 
 
 # --- model-level validation --------------------------------------
