@@ -4,6 +4,12 @@ Importing this package must not touch Django settings or the ORM. Keep every
 module here free of ``django.*`` and ``chores.models`` imports.
 """
 
+from .balance import (
+    WorkItem,
+    decay_factor,
+    member_workloads,
+    who_is_ahead,
+)
 from .weights import (
     DEFAULT_DECAY_HALF_LIFE_DAYS,
     DEFAULT_DIFFICULTY_WEIGHT,
@@ -33,7 +39,11 @@ __all__ = [
     "HALF_LIFE_MIN_DAYS",
     "WEIGHT_MAX",
     "WEIGHT_MIN",
+    "WorkItem",
     "WorkloadWeights",
+    "decay_factor",
+    "member_workloads",
     "weight_errors",
+    "who_is_ahead",
     "workload_value",
 ]
