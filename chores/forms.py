@@ -121,6 +121,52 @@ class WeightProposalForm(_WeightValuesForm):
         fields = WEIGHT_FIELDS
 
 
+class SetupQuestionnaireForm(forms.Form):
+    """Guided questions + a free-form description for AI setup (task #18).
+
+    Household size is fixed at two and never asked. ``answers()`` returns the
+    guided fields as a plain dict for the Anthropic request.
+    """
+
+    HOME_TYPE_CHOICES = [
+        ("apartment", "Apartment"),
+        ("house", "House"),
+        ("other", "Other"),
+    ]
+
+    home_type = forms.ChoiceField(choices=HOME_TYPE_CHOICES)
+    rooms = forms.IntegerField(
+        min_value=1, max_value=30, label="Number of rooms to keep tidy"
+    )
+    has_pets = forms.BooleanField(required=False, label="Any pets?")
+    standout_preferences = forms.CharField(
+        widget=forms.Textarea(attrs={"rows": 3}),
+        required=False,
+        label="Any standout likes or dislikes? (optional)",
+    )
+    description = forms.CharField(
+        widget=forms.Textarea(attrs={"rows": 6}),
+        label="Describe your household and how you'd like chores to work",
+    )
+
+    def clean_description(self):
+        description = (self.cleaned_data.get("description") or "").strip()
+        if not description:
+            raise forms.ValidationError("Please describe your household.")
+        return description
+
+    def answers(self):
+        data = self.cleaned_data
+        return {
+            "home_type": data["home_type"],
+            "rooms": data["rooms"],
+            "has_pets": "yes" if data.get("has_pets") else "no",
+            "standout_preferences": (
+                data.get("standout_preferences") or "(none given)"
+            ),
+        }
+
+
 class CompletionForm(forms.ModelForm):
     """Optional feedback captured when an occurrence is marked done.
 

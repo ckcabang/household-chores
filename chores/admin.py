@@ -1,6 +1,7 @@
 from django.contrib import admin
 
 from .models import (
+    AISetupDraft,
     Chore,
     ChoreOccurrence,
     Completion,
@@ -136,6 +137,15 @@ class WeightProposalAdmin(admin.ModelAdmin):
     list_select_related = ("household", "created_by__user")
     filter_horizontal = ("approved_by",)
     search_fields = ("household__name",)
+    date_hierarchy = "created_at"
+
+
+@admin.register(AISetupDraft)
+class AISetupDraftAdmin(admin.ModelAdmin):
+    list_display = ("household", "status", "created_at", "applied_at")
+    list_filter = ("status", "household")
+    list_select_related = ("household",)
+    search_fields = ("household__name", "reasoning")
     date_hierarchy = "created_at"
 
 

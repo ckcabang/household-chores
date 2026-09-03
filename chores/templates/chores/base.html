@@ -22,6 +22,7 @@
           <a href="{% url 'chores:fairness_edit' %}">Fairness</a>
           <a href="{% url 'chores:rebalance' %}">Rebalance</a>
           <a href="{% url 'chores:estimate_proposal_list' %}">Proposals</a>
+          <a href="{% url 'chores:setup' %}">AI setup</a>
         {% endif %}
         {% if user.is_authenticated %}
           {% if not current_household %}

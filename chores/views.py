@@ -17,6 +17,7 @@ from django.views.generic import (
     CreateView,
     DeleteView,
     DetailView,
+    FormView,
     ListView,
     TemplateView,
     UpdateView,
@@ -30,10 +31,17 @@ from .services import (
     household_workloads,
     recent_contribution,
 )
+from .ai import setup as ai_setup
+from .ai.setup import (
+    AISetupConfigError,
+    PlanGenerationError,
+    PlanValidationError,
+)
 from .forms import (
     ChoreForm,
     CompletionForm,
     HouseholdForm,
+    SetupQuestionnaireForm,
     SignupForm,
     WeightProposalForm,
 )
@@ -46,6 +54,7 @@ from .models import (
     PROPOSAL_STATUS_DISMISSED,
     PROPOSAL_STATUS_PENDING,
     WEIGHT_PROPOSAL_STATUS_OPEN,
+    AISetupDraft,
     Chore,
     ChoreOccurrence,
     Constraint,
@@ -388,6 +397,64 @@ class ConstraintDeleteView(HouseholdScopedMixin, View):
         constraint.delete()
         messages.success(request, "Constraint removed.")
         return redirect("chores:chore_edit", pk=chore.pk)
+
+
+class SetupView(HouseholdScopedMixin, FormView):
+    """Guided questions + free text -> a validated draft plan (task #18).
+
+    Nothing is applied to the household here; the draft is reviewed and
+    confirmed in task #19. The Anthropic call is isolated in
+    ``chores.ai.setup`` and reached through ``ai_setup.generate_plan`` so tests
+    inject a stub and CI needs no key.
+    """
+
+    template_name = "chores/setup.html"
+    form_class = SetupQuestionnaireForm
+    success_url = reverse_lazy("chores:setup")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["latest_draft"] = (
+            self.household.ai_setup_drafts.order_by("-created_at").first()
+        )
+        return context
+
+    def form_valid(self, form):
+        try:
+            plan = ai_setup.generate_plan(
+                form.answers(), form.cleaned_data["description"]
+            )
+        except AISetupConfigError:
+            messages.error(
+                self.request,
+                "AI setup isn't configured yet - ANTHROPIC_API_KEY is missing.",
+            )
+            return self.form_invalid(form)
+        except PlanValidationError:
+            messages.error(
+                self.request,
+                "The AI response didn't match what we expected. Please try again.",
+            )
+            return self.form_invalid(form)
+        except PlanGenerationError:
+            messages.error(
+                self.request,
+                "Couldn't reach the AI service just now. Please try again shortly.",
+            )
+            return self.form_invalid(form)
+
+        AISetupDraft.objects.create(
+            household=self.household,
+            raw_response=plan.raw,
+            chores=plan.chores,
+            constraints=plan.constraints,
+            assignments=plan.assignments,
+            reasoning=plan.reasoning,
+        )
+        messages.success(
+            self.request, "Draft plan generated. Review it before applying."
+        )
+        return super().form_valid(form)
 
 
 class DashboardView(HouseholdScopedMixin, TemplateView):

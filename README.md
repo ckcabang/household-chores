@@ -59,6 +59,8 @@ For anything else, copy `.env.example` to `.env` (git-ignored) and override:
 | `DEBUG` | `true` | Must be `false` in production. |
 | `ALLOWED_HOSTS` | `localhost,127.0.0.1,[::1]` | Comma-separated; required when `DEBUG=false`. |
 | `DATABASE_URL` | local SQLite file | e.g. `postgres://user:pass@host:5432/dbname`. The `psycopg` driver is installed. |
+| `ANTHROPIC_API_KEY` | unset | Enables AI setup (`/setup/`). Unset: the page shows a "not configured" notice; nothing else is affected. |
+| `ANTHROPIC_MODEL` | `claude-opus-5` | Optional override for the model AI setup uses. |
 
 ## Running tests
 

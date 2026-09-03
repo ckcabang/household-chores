@@ -81,6 +81,15 @@ WEIGHT_PROPOSAL_STATUS_CHOICES = [
     (WEIGHT_PROPOSAL_STATUS_REJECTED, "Rejected"),
 ]
 
+# An AI setup draft (task #18) is generated, then reviewed and applied (task
+# #19). It is never partially applied.
+AI_DRAFT_STATUS_DRAFT = "draft"
+AI_DRAFT_STATUS_APPLIED = "applied"
+AI_DRAFT_STATUS_CHOICES = [
+    (AI_DRAFT_STATUS_DRAFT, "Draft"),
+    (AI_DRAFT_STATUS_APPLIED, "Applied"),
+]
+
 # Namespace for the signed invitation tokens so they can't be swapped in
 # from another ``django.core.signing`` use.
 INVITATION_TOKEN_SALT = "chores.models.Invitation"
@@ -712,3 +721,40 @@ class WeightProposal(WeightValues):
         self.status = WEIGHT_PROPOSAL_STATUS_REJECTED
         self.resolved_at = timezone.now()
         self.save(update_fields=["status", "resolved_at"])
+
+
+class AISetupDraft(models.Model):
+    """A validated, not-yet-applied chore plan from the Anthropic API (task #18).
+
+    ``raw_response`` keeps the exact structured payload; ``chores`` /
+    ``constraints`` / ``assignments`` hold the editable working copy that task
+    #19's review screen mutates before it is applied.
+    """
+
+    household = models.ForeignKey(
+        "Household",
+        on_delete=models.CASCADE,
+        related_name="ai_setup_drafts",
+    )
+    raw_response = models.JSONField()
+    chores = models.JSONField(default=list, blank=True)
+    constraints = models.JSONField(default=list, blank=True)
+    assignments = models.JSONField(default=list, blank=True)
+    reasoning = models.TextField(blank=True)
+    status = models.CharField(
+        max_length=20,
+        choices=AI_DRAFT_STATUS_CHOICES,
+        default=AI_DRAFT_STATUS_DRAFT,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    applied_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at", "id"]
+
+    def __str__(self):
+        return f"AI setup draft for {self.household} ({self.status})"
+
+    @property
+    def is_draft(self):
+        return self.status == AI_DRAFT_STATUS_DRAFT

@@ -1,0 +1,28 @@
+{% extends "chores/base.html" %}
+
+{% block title %}AI setup · Household Chores{% endblock %}
+
+{% block content %}
+  <h1>AI setup</h1>
+  <p>
+    Answer a few questions and describe your household. We'll draft a chore
+    plan &mdash; chores, cadences, estimates, and a first assignment &mdash;
+    for you to review before anything is applied.
+  </p>
+
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Generate a draft plan</button>
+  </form>
+
+  {% if latest_draft %}
+    <section class="ai-draft">
+      <h2>Latest draft ({{ latest_draft.get_status_display|lower }})</h2>
+      <p>{{ latest_draft.reasoning }}</p>
+      <p>{{ latest_draft.chores|length }} chore(s),
+         {{ latest_draft.constraints|length }} constraint(s),
+         {{ latest_draft.assignments|length }} assignment(s).</p>
+    </section>
+  {% endif %}
+{% endblock %}

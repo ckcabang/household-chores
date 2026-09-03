@@ -7,6 +7,7 @@ app_name = "chores"
 urlpatterns = [
     path("", views.HomeView.as_view(), name="home"),
     path("dashboard/", views.DashboardView.as_view(), name="dashboard"),
+    path("setup/", views.SetupView.as_view(), name="setup"),
     path("household/new/", views.HouseholdCreateView.as_view(), name="household_create"),
     path("household/invite/", views.InviteView.as_view(), name="invite"),
     path(
