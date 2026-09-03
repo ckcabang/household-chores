@@ -15,3 +15,22 @@ jobs:
           enable-cache: true
       - run: uv sync --locked
       - run: uv run pytest
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t household-chores .
+      - name: check --deploy (no errors)
+        run: |
+          docker run --rm \
+            -e DEBUG=false \
+            -e SECRET_KEY=ci-placeholder-key-0000000000000000000000000000000000 \
+            -e ALLOWED_HOSTS=example.com \
+            -e DATABASE_URL=postgres://u:p@db:5432/chores \
+            -e SECURE_SSL_REDIRECT=true \
+            -e SESSION_COOKIE_SECURE=true \
+            -e CSRF_COOKIE_SECURE=true \
+            -e SECURE_HSTS_SECONDS=31536000 \
+            household-chores \
+            uv run python manage.py check --deploy

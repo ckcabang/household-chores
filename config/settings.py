@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 from pathlib import Path
 
 import environ
+from django.core.exceptions import ImproperlyConfigured
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -33,6 +34,23 @@ SECRET_KEY = env("SECRET_KEY")
 DEBUG = env("DEBUG")
 
 ALLOWED_HOSTS = env("ALLOWED_HOSTS")
+
+# In production (DEBUG=False) the safe local defaults are not acceptable:
+# ALLOWED_HOSTS and a non-SQLite DATABASE_URL must both be set explicitly.
+# Fail fast at startup rather than serving misconfigured.
+if not DEBUG:
+    if not env.str("ALLOWED_HOSTS", default=""):
+        raise ImproperlyConfigured(
+            "ALLOWED_HOSTS must be set when DEBUG=False."
+        )
+    if "sqlite" in env.str("DATABASE_URL", default=""):
+        raise ImproperlyConfigured(
+            "A Postgres DATABASE_URL is required when DEBUG=False."
+        )
+    if not env.str("DATABASE_URL", default=""):
+        raise ImproperlyConfigured(
+            "DATABASE_URL must be set when DEBUG=False."
+        )
 
 
 # Application definition
@@ -56,6 +74,12 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
+
+# WhiteNoise serves the compressed, hashed static files straight from Gunicorn
+# in production. In development `runserver` serves them itself, so the
+# middleware (which warns when STATIC_ROOT hasn't been collected) is skipped.
+if not DEBUG:
+    MIDDLEWARE.insert(1, "whitenoise.middleware.WhiteNoiseMiddleware")
 
 ROOT_URLCONF = "config.urls"
 
@@ -139,6 +163,39 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+
+# Compressed, hashed static files served by WhiteNoise in production
+# (`collectstatic` runs in the image build). Development and the test suite
+# use the plain storage so no manifest is required.
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": (
+            "django.contrib.staticfiles.storage.StaticFilesStorage"
+            if DEBUG
+            else "whitenoise.storage.CompressedManifestStaticFilesStorage"
+        ),
+    },
+}
+
+
+# Production security. Every switch is env-driven and defaults to the safe
+# production value being off in development (DEBUG=True).
+_secure_default = not DEBUG
+SECURE_SSL_REDIRECT = env.bool("SECURE_SSL_REDIRECT", default=_secure_default)
+SESSION_COOKIE_SECURE = env.bool("SESSION_COOKIE_SECURE", default=_secure_default)
+CSRF_COOKIE_SECURE = env.bool("CSRF_COOKIE_SECURE", default=_secure_default)
+SECURE_HSTS_SECONDS = env.int("SECURE_HSTS_SECONDS", default=0)
+SECURE_HSTS_INCLUDE_SUBDOMAINS = env.bool(
+    "SECURE_HSTS_INCLUDE_SUBDOMAINS", default=True
+)
+SECURE_HSTS_PRELOAD = env.bool("SECURE_HSTS_PRELOAD", default=True)
+
+# Set when running behind a TLS-terminating proxy (most PaaS hosts).
+if env.bool("SECURE_PROXY_SSL_HEADER", default=False):
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field

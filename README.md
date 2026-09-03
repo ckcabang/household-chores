@@ -74,6 +74,9 @@ For anything else, copy `.env.example` to `.env` (git-ignored) and override:
 | `DATABASE_URL` | local SQLite file | e.g. `postgres://user:pass@host:5432/dbname`. The `psycopg` driver is installed. |
 | `ANTHROPIC_API_KEY` | unset | Enables AI setup (`/setup/`). Unset: the page shows a "not configured" notice; nothing else is affected. |
 | `ANTHROPIC_MODEL` | `claude-opus-5` | Optional override for the model AI setup uses. |
+| `SECURE_SSL_REDIRECT` / `SESSION_COOKIE_SECURE` / `CSRF_COOKIE_SECURE` | follow `DEBUG` | On when `DEBUG=false`; override per environment. |
+| `SECURE_HSTS_SECONDS` | `0` | Set (e.g. `31536000`) once HTTPS is permanent. `SECURE_HSTS_INCLUDE_SUBDOMAINS` / `SECURE_HSTS_PRELOAD` default true. |
+| `SECURE_PROXY_SSL_HEADER` | `false` | Set `true` behind a TLS-terminating proxy that sends `X-Forwarded-Proto`. |
 
 ## Running tests
 
@@ -83,6 +86,46 @@ uv run pytest
 
 The suite runs on every push and pull request via GitHub Actions
 ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
+
+## Deployment
+
+One settings module driven by environment variables — no `settings/prod.py`.
+With `DEBUG=false` the app fails fast at startup unless `ALLOWED_HOSTS` and a
+Postgres `DATABASE_URL` are set.
+
+Build and run with the `Dockerfile`:
+
+```bash
+docker build -t household-chores .
+docker run --rm -p 8000:8000 \
+  -e DEBUG=false \
+  -e SECRET_KEY=... \
+  -e ALLOWED_HOSTS=chores.example.com \
+  -e DATABASE_URL=postgres://user:pass@host:5432/chores \
+  -e SECURE_PROXY_SSL_HEADER=true \
+  household-chores
+```
+
+The image runs `collectstatic` at build time; the container command runs
+`migrate` and then serves with Gunicorn on port 8000. WhiteNoise serves the
+compressed, hashed static files from the same process.
+
+Required in production: `SECRET_KEY`, `DEBUG=false`, `ALLOWED_HOSTS`,
+`DATABASE_URL` (Postgres). Optional security switches are in the configuration
+table above.
+
+Verify the config (residual warnings such as a weak `SECRET_KEY` are expected
+in this smoke form; there should be no errors):
+
+```bash
+DEBUG=false SECRET_KEY=$(uv run python -c "from django.core.management.utils import get_random_secret_key as k; print(k())") \
+  ALLOWED_HOSTS=example.com DATABASE_URL=postgres://u:p@h/db \
+  SECURE_SSL_REDIRECT=true SESSION_COOKIE_SECURE=true CSRF_COOKIE_SECURE=true \
+  SECURE_HSTS_SECONDS=31536000 \
+  uv run python manage.py check --deploy
+```
+
+CI builds the image and runs `check --deploy` against it on every push.
 
 ## Project layout
 
