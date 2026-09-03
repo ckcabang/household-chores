@@ -47,6 +47,19 @@ uv run python manage.py runserver
 with `uv run`, or activate the environment (`source .venv/Scripts/activate` on
 Windows Git Bash, `source .venv/bin/activate` elsewhere).
 
+### Demo data
+
+`uv run python manage.py seed_demo` builds a complete demo household — two
+members, six chores of varying cadence and difficulty, past and upcoming
+occurrences, completion history, and a contribution credit — so the dashboard
+and fairness screens have something to show. Re-run with `--reset` to rebuild
+it; it refuses to run when `DEBUG=False` unless passed `--force`.
+
+| User | Password |
+|---|---|
+| `demo-alice` | `demo-pass-alice` |
+| `demo-bob` | `demo-pass-bob` |
+
 ## Configuration
 
 Settings are read from the environment. With no configuration the app runs on
