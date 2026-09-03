@@ -1,0 +1,65 @@
+{% extends "chores/base.html" %}
+
+{% block title %}Estimate proposals · Household Chores{% endblock %}
+
+{% block content %}
+  <h1>Estimate proposals</h1>
+  <p>
+    When logged times drift from a chore's estimate, the system proposes a new
+    one. Either of you can accept a proposal on your own.
+  </p>
+
+  <form method="post" action="{% url 'chores:estimate_proposal_refresh' %}">
+    {% csrf_token %}
+    <button type="submit">Check for updates</button>
+  </form>
+
+  {% if proposals %}
+    <table class="proposals">
+      <thead>
+        <tr>
+          <th scope="col">Chore</th>
+          <th scope="col">Current</th>
+          <th scope="col">Proposed</th>
+          <th scope="col">Why</th>
+          <th scope="col">Decision</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for proposal in proposals %}
+          <tr>
+            <td>{{ proposal.chore.name }}</td>
+            <td>{{ proposal.chore.estimated_minutes }} min</td>
+            <td>{{ proposal.proposed_minutes }} min</td>
+            <td>{{ proposal.rationale }}</td>
+            <td>
+              <form method="post" action="{% url 'chores:estimate_proposal_accept' proposal.pk %}" style="display:inline">
+                {% csrf_token %}
+                <button type="submit">Accept</button>
+              </form>
+              <form method="post" action="{% url 'chores:estimate_proposal_dismiss' proposal.pk %}" style="display:inline">
+                {% csrf_token %}
+                <button type="submit">Dismiss</button>
+              </form>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p>No pending proposals.</p>
+  {% endif %}
+
+  {% if decided %}
+    <h2>Recently decided</h2>
+    <ul>
+      {% for proposal in decided %}
+        <li>
+          {{ proposal.chore.name }} &rarr; {{ proposal.proposed_minutes }} min
+          ({{ proposal.get_status_display|lower }}{% if proposal.decided_by %}
+          by {{ proposal.decided_by.user.username }}{% endif %})
+        </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+{% endblock %}

@@ -42,6 +42,26 @@ urlpatterns = [
         name="constraint_delete",
     ),
     path(
+        "proposals/estimates/",
+        views.EstimateProposalListView.as_view(),
+        name="estimate_proposal_list",
+    ),
+    path(
+        "proposals/estimates/refresh/",
+        views.EstimateProposalRefreshView.as_view(),
+        name="estimate_proposal_refresh",
+    ),
+    path(
+        "proposals/estimates/<int:pk>/accept/",
+        views.EstimateProposalAcceptView.as_view(),
+        name="estimate_proposal_accept",
+    ),
+    path(
+        "proposals/estimates/<int:pk>/dismiss/",
+        views.EstimateProposalDismissView.as_view(),
+        name="estimate_proposal_dismiss",
+    ),
+    path(
         "occurrences/",
         views.OccurrenceListView.as_view(),
         name="occurrence_list",

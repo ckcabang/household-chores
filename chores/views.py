@@ -40,14 +40,19 @@ from .models import (
     DIFFICULTY_CHOICES,
     OCCURRENCE_STATUS_ACTIVE,
     OCCURRENCE_STATUS_COMPLETED,
+    PROPOSAL_STATUS_ACCEPTED,
+    PROPOSAL_STATUS_DISMISSED,
+    PROPOSAL_STATUS_PENDING,
     Chore,
     ChoreOccurrence,
     Constraint,
     ContributionCredit,
+    EstimateProposal,
     FairnessWeights,
     Invitation,
     Membership,
 )
+from .proposals import generate_estimate_proposals
 
 
 def _safe_next(request):
@@ -459,6 +464,113 @@ class RebalanceView(HouseholdScopedMixin, TemplateView):
             for mid in memberships
         ]
         return context
+
+
+class EstimateProposalListView(HouseholdScopedMixin, ListView):
+    """Pending estimate-change proposals for the household, with accept/dismiss.
+
+    The "Check for updates" button (a POST to ``estimate_proposal_refresh``)
+    runs the learning pass across the household's chores.
+    """
+
+    template_name = "chores/estimate_proposals.html"
+    context_object_name = "proposals"
+
+    def get_queryset(self):
+        return (
+            EstimateProposal.objects.filter(
+                chore__household=self.household,
+                status=PROPOSAL_STATUS_PENDING,
+            )
+            .select_related("chore")
+            .order_by("-created_at", "id")
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["decided"] = (
+            EstimateProposal.objects.filter(chore__household=self.household)
+            .exclude(status=PROPOSAL_STATUS_PENDING)
+            .select_related("chore", "decided_by__user")
+            .order_by("-decided_at", "id")[:10]
+        )
+        return context
+
+
+class EstimateProposalRefreshView(HouseholdScopedMixin, View):
+    """POST-only: run the estimate-learning pass for the current household."""
+
+    http_method_names = ["post"]
+
+    def post(self, request):
+        created = generate_estimate_proposals(self.household)
+        if created:
+            messages.success(
+                request,
+                f"Found {len(created)} chore(s) whose logged times suggest a "
+                "new estimate.",
+            )
+        else:
+            messages.info(
+                request, "No estimate changes to propose right now."
+            )
+        return redirect("chores:estimate_proposal_list")
+
+
+class _EstimateProposalDecisionView(HouseholdScopedMixin, View):
+    """Shared 404 + already-decided handling for accept and dismiss."""
+
+    http_method_names = ["post"]
+
+    def get_proposal(self, pk):
+        return get_object_or_404(
+            EstimateProposal, pk=pk, chore__household=self.household
+        )
+
+
+class EstimateProposalAcceptView(_EstimateProposalDecisionView):
+    """POST-only: apply a proposal's values to its chore. Either member may."""
+
+    def post(self, request, pk):
+        proposal = self.get_proposal(pk)
+        if proposal.status != PROPOSAL_STATUS_PENDING:
+            messages.info(request, "That proposal has already been decided.")
+            return redirect("chores:estimate_proposal_list")
+
+        chore = proposal.chore
+        with transaction.atomic():
+            chore.estimated_minutes = proposal.proposed_minutes
+            if proposal.proposed_difficulty is not None:
+                chore.difficulty = proposal.proposed_difficulty
+            chore.full_clean()
+            chore.save()
+            proposal.status = PROPOSAL_STATUS_ACCEPTED
+            proposal.decided_at = timezone.now()
+            proposal.decided_by = self.membership
+            proposal.save(update_fields=["status", "decided_at", "decided_by"])
+
+        messages.success(
+            request,
+            f"Updated “{chore.name}” to {proposal.proposed_minutes} min.",
+        )
+        return redirect("chores:estimate_proposal_list")
+
+
+class EstimateProposalDismissView(_EstimateProposalDecisionView):
+    """POST-only: dismiss a proposal without touching the chore."""
+
+    def post(self, request, pk):
+        proposal = self.get_proposal(pk)
+        if proposal.status != PROPOSAL_STATUS_PENDING:
+            messages.info(request, "That proposal has already been decided.")
+            return redirect("chores:estimate_proposal_list")
+
+        proposal.status = PROPOSAL_STATUS_DISMISSED
+        proposal.decided_at = timezone.now()
+        proposal.decided_by = self.membership
+        proposal.save(update_fields=["status", "decided_at", "decided_by"])
+        messages.success(request, "Proposal dismissed.")
+        return redirect("chores:estimate_proposal_list")
 
 
 def _active_occurrences(household):

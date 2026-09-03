@@ -6,6 +6,7 @@ from .models import (
     Completion,
     Constraint,
     ContributionCredit,
+    EstimateProposal,
     FairnessWeights,
     Household,
     Invitation,
@@ -99,6 +100,23 @@ class ContributionCreditAdmin(admin.ModelAdmin):
         "helper__user__username",
         "owner__user__username",
     )
+
+
+@admin.register(EstimateProposal)
+class EstimateProposalAdmin(admin.ModelAdmin):
+    list_display = (
+        "chore",
+        "proposed_minutes",
+        "proposed_difficulty",
+        "status",
+        "created_at",
+        "decided_at",
+        "decided_by",
+    )
+    list_filter = ("status", "chore__household")
+    list_select_related = ("chore", "decided_by__user")
+    search_fields = ("chore__name", "rationale")
+    date_hierarchy = "created_at"
 
 
 @admin.register(Invitation)

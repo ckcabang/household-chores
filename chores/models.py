@@ -59,6 +59,17 @@ OCCURRENCE_STATUS_CHOICES = [
 OCCURRENCE_STATUS_ACTIVE = OCCURRENCE_STATUS_CHOICES[0][0]
 OCCURRENCE_STATUS_COMPLETED = OCCURRENCE_STATUS_CHOICES[1][0]
 
+# Where a member proposal (estimate learning, task #15; weight change, task #16)
+# is in its lifecycle. A decided proposal never changes again.
+PROPOSAL_STATUS_PENDING = "pending"
+PROPOSAL_STATUS_ACCEPTED = "accepted"
+PROPOSAL_STATUS_DISMISSED = "dismissed"
+ESTIMATE_PROPOSAL_STATUS_CHOICES = [
+    (PROPOSAL_STATUS_PENDING, "Pending"),
+    (PROPOSAL_STATUS_ACCEPTED, "Accepted"),
+    (PROPOSAL_STATUS_DISMISSED, "Dismissed"),
+]
+
 # Namespace for the signed invitation tokens so they can't be swapped in
 # from another ``django.core.signing`` use.
 INVITATION_TOKEN_SALT = "chores.models.Invitation"
@@ -552,3 +563,61 @@ class ContributionCredit(models.Model):
                 "A contribution credit's helper and owner must belong to the "
                 "same household."
             )
+
+
+class EstimateProposal(models.Model):
+    """A suggested change to a chore's time estimate, learned from history.
+
+    Created ``pending`` by :func:`chores.proposals.generate_estimate_proposals`
+    (which routes the comparison through
+    :func:`chores.fairness.propose_estimate`). Either member can accept one on
+    their own - the plan allows estimate changes to be accepted individually -
+    or dismiss it. A decided proposal is frozen.
+    """
+
+    chore = models.ForeignKey(
+        Chore,
+        on_delete=models.CASCADE,
+        related_name="estimate_proposals",
+    )
+    proposed_minutes = models.PositiveIntegerField(validators=[MinValueValidator(1)])
+    proposed_difficulty = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        choices=DIFFICULTY_CHOICES,
+    )
+    rationale = models.TextField()
+    status = models.CharField(
+        max_length=20,
+        choices=ESTIMATE_PROPOSAL_STATUS_CHOICES,
+        default=PROPOSAL_STATUS_PENDING,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    decided_at = models.DateTimeField(null=True, blank=True)
+    decided_by = models.ForeignKey(
+        Membership,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="estimate_decisions",
+    )
+
+    class Meta:
+        ordering = ["-created_at", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["chore"],
+                condition=Q(status=PROPOSAL_STATUS_PENDING),
+                name="one_pending_estimate_proposal_per_chore",
+            ),
+        ]
+
+    def __str__(self):
+        return (
+            f"Estimate {self.proposed_minutes} min for {self.chore} "
+            f"({self.status})"
+        )
+
+    @property
+    def is_pending(self):
+        return self.status == PROPOSAL_STATUS_PENDING

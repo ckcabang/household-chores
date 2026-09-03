@@ -16,6 +16,13 @@ from .balance import (
     member_workloads,
     who_is_ahead,
 )
+from .estimates import (
+    ESTIMATE_CHANGE_THRESHOLD,
+    ESTIMATE_MIN_SAMPLES,
+    ESTIMATE_SAMPLE_SIZE,
+    EstimateSuggestion,
+    propose_estimate,
+)
 from .weights import (
     DEFAULT_DECAY_HALF_LIFE_DAYS,
     DEFAULT_DIFFICULTY_WEIGHT,
@@ -39,6 +46,10 @@ __all__ = [
     "AssignmentResult",
     "BASELINE_DIFFICULTY",
     "ChoreProposal",
+    "ESTIMATE_CHANGE_THRESHOLD",
+    "ESTIMATE_MIN_SAMPLES",
+    "ESTIMATE_SAMPLE_SIZE",
+    "EstimateSuggestion",
     "DEFAULT_DECAY_HALF_LIFE_DAYS",
     "DEFAULT_DIFFICULTY_WEIGHT",
     "DEFAULT_TIME_WEIGHT",
@@ -53,6 +64,7 @@ __all__ = [
     "decay_factor",
     "member_workloads",
     "propose_assignments",
+    "propose_estimate",
     "weight_errors",
     "who_is_ahead",
     "workload_value",
