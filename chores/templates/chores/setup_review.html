@@ -1,0 +1,93 @@
+{% extends "chores/base.html" %}
+
+{% block title %}Review AI setup · Household Chores{% endblock %}
+
+{% block content %}
+  <h1>Review the draft plan</h1>
+
+  {% if draft.status != "draft" %}
+    <p>This plan has already been applied.</p>
+  {% else %}
+    <p>{{ draft.reasoning }}</p>
+
+    <form method="post">
+      {% csrf_token %}
+
+      <h2>Chores</h2>
+      <table class="setup-review">
+        <thead>
+          <tr>
+            <th scope="col">Name</th>
+            <th scope="col">Every N days</th>
+            <th scope="col">Minutes</th>
+            <th scope="col">Difficulty</th>
+            <th scope="col">Drop</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for chore in draft.chores %}
+            <tr>
+              <td><input type="text" name="chore-{{ forloop.counter0 }}-name" value="{{ chore.name }}"></td>
+              <td><input type="number" name="chore-{{ forloop.counter0 }}-cadence_days" value="{{ chore.cadence_days }}" min="1"></td>
+              <td><input type="number" name="chore-{{ forloop.counter0 }}-estimated_minutes" value="{{ chore.estimated_minutes }}" min="1"></td>
+              <td>
+                <select name="chore-{{ forloop.counter0 }}-difficulty">
+                  {% for value, label in difficulty_choices %}
+                    <option value="{{ value }}"{% if value == chore.difficulty %} selected{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+              </td>
+              <td><input type="checkbox" name="chore-{{ forloop.counter0 }}-remove"></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <h2>Inferred constraints</h2>
+      {% if draft.constraints %}
+        <table class="setup-review">
+          <thead>
+            <tr><th scope="col">Person</th><th scope="col">Chore</th><th scope="col">Kind</th><th scope="col">Drop</th></tr>
+          </thead>
+          <tbody>
+            {% for c in draft.constraints %}
+              <tr>
+                <td>
+                  {{ c.person }}
+                  <input type="hidden" name="constraint-{{ forloop.counter0 }}-person" value="{{ c.person }}">
+                </td>
+                <td>
+                  {{ c.chore }}
+                  <input type="hidden" name="constraint-{{ forloop.counter0 }}-chore" value="{{ c.chore }}">
+                </td>
+                <td>
+                  <select name="constraint-{{ forloop.counter0 }}-kind">
+                    {% for value, label in constraint_kind_choices %}
+                      <option value="{{ value }}"{% if value == c.kind %} selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                  </select>
+                </td>
+                <td><input type="checkbox" name="constraint-{{ forloop.counter0 }}-remove"></td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p>None inferred.</p>
+      {% endif %}
+
+      <h2>Proposed assignments</h2>
+      <p>These are applied as a starting point and flagged for your review.</p>
+      <ul>
+        {% for a in draft.assignments %}
+          <li>{{ a.chore }} &rarr; {{ a.member }}</li>
+        {% empty %}
+          <li>None proposed.</li>
+        {% endfor %}
+      </ul>
+
+      <button type="submit" name="action" value="save">Save edits</button>
+      <button type="submit" name="action" value="confirm">Confirm and apply</button>
+    </form>
+  {% endif %}
+{% endblock %}

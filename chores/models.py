@@ -312,6 +312,13 @@ class Chore(models.Model):
         related_name="primary_chores",
     )
     allows_multiple_contributors = models.BooleanField(default=False)
+    assignment_needs_review = models.BooleanField(
+        default=False,
+        help_text=(
+            "Set when the primary owner came from an AI setup plan (task #19) "
+            "and the members haven't confirmed it yet."
+        ),
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

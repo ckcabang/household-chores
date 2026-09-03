@@ -51,9 +51,15 @@ class ChoreAdmin(admin.ModelAdmin):
         "estimated_minutes",
         "difficulty",
         "primary_owner",
+        "assignment_needs_review",
         "allows_multiple_contributors",
     )
-    list_filter = ("household", "difficulty", "allows_multiple_contributors")
+    list_filter = (
+        "household",
+        "difficulty",
+        "assignment_needs_review",
+        "allows_multiple_contributors",
+    )
     list_select_related = ("household", "primary_owner__user")
     search_fields = ("name", "household__name")
 
@@ -72,6 +78,7 @@ class ChoreOccurrenceAdmin(admin.ModelAdmin):
     list_filter = ("status", "chore__household")
     list_select_related = ("chore", "chore__household", "claimed_by__user")
     search_fields = ("chore__name", "chore__household__name")
+    date_hierarchy = "due_date"
 
 
 @admin.register(Completion)
@@ -86,6 +93,7 @@ class CompletionAdmin(admin.ModelAdmin):
     list_select_related = ("occurrence", "completed_by__user")
     list_filter = ("completed_by__household",)
     search_fields = ("occurrence__chore__name", "completed_by__user__username")
+    date_hierarchy = "created_at"
 
 
 @admin.register(ContributionCredit)

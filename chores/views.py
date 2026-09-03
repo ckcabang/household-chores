@@ -32,6 +32,7 @@ from .services import (
     recent_contribution,
 )
 from .ai import setup as ai_setup
+from .ai.apply import apply_draft
 from .ai.setup import (
     AISetupConfigError,
     PlanGenerationError,
@@ -455,6 +456,110 @@ class SetupView(HouseholdScopedMixin, FormView):
             self.request, "Draft plan generated. Review it before applying."
         )
         return super().form_valid(form)
+
+
+class SetupReviewView(HouseholdScopedMixin, View):
+    """Review the latest draft plan, edit or drop items, then confirm.
+
+    Confirming creates real ``Chore`` and ``Constraint`` rows in one atomic
+    block (``chores.ai.apply.apply_draft``); chores activate immediately and
+    proposed owners are flagged ``assignment_needs_review``. A draft that is
+    already ``applied`` is not re-created. With no draft, redirect to /setup/.
+    """
+
+    template_name = "chores/setup_review.html"
+
+    def _latest_draft(self):
+        return self.household.ai_setup_drafts.order_by("-created_at").first()
+
+    def get(self, request):
+        draft = self._latest_draft()
+        if draft is None:
+            return redirect("chores:setup")
+        return render(request, self.template_name, self._context(draft))
+
+    def post(self, request):
+        draft = self._latest_draft()
+        if draft is None:
+            return redirect("chores:setup")
+
+        if draft.status != "draft":
+            messages.info(request, "That plan has already been applied.")
+            return redirect("chores:dashboard")
+
+        chores, constraints = self._read_edits(request.POST)
+        draft.chores = chores
+        draft.constraints = constraints
+        draft.save(update_fields=["chores", "constraints"])
+
+        if request.POST.get("action") == "confirm":
+            try:
+                counts = apply_draft(draft)
+            except (ValidationError, ValueError, TypeError) as exc:
+                messages.error(
+                    request,
+                    "Some values in the plan are invalid - fix them and "
+                    f"confirm again. ({exc})",
+                )
+                return render(request, self.template_name, self._context(draft))
+            messages.success(
+                request,
+                f"Applied the plan: {counts['chores']} chore(s), "
+                f"{counts['constraints']} constraint(s). "
+                f"{counts['assignments_flagged']} assignment(s) need your review.",
+            )
+            return redirect("chores:dashboard")
+
+        messages.success(request, "Draft saved.")
+        return render(request, self.template_name, self._context(draft))
+
+    def _context(self, draft):
+        return {
+            "draft": draft,
+            "current_household": self.household,
+            "current_membership": self.membership,
+            "difficulty_choices": DIFFICULTY_CHOICES,
+            "constraint_kind_choices": CONSTRAINT_KIND_CHOICES,
+        }
+
+    @staticmethod
+    def _read_edits(post):
+        chores = []
+        i = 0
+        while f"chore-{i}-name" in post:
+            if not post.get(f"chore-{i}-remove"):
+                chores.append(
+                    {
+                        "name": post.get(f"chore-{i}-name", "").strip(),
+                        "cadence_days": _maybe_int(post.get(f"chore-{i}-cadence_days")),
+                        "estimated_minutes": _maybe_int(
+                            post.get(f"chore-{i}-estimated_minutes")
+                        ),
+                        "difficulty": _maybe_int(post.get(f"chore-{i}-difficulty")),
+                    }
+                )
+            i += 1
+
+        constraints = []
+        j = 0
+        while f"constraint-{j}-person" in post:
+            if not post.get(f"constraint-{j}-remove"):
+                constraints.append(
+                    {
+                        "person": post.get(f"constraint-{j}-person", ""),
+                        "chore": post.get(f"constraint-{j}-chore", ""),
+                        "kind": post.get(f"constraint-{j}-kind", "prefer"),
+                    }
+                )
+            j += 1
+        return chores, constraints
+
+
+def _maybe_int(value):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return value
 
 
 class DashboardView(HouseholdScopedMixin, TemplateView):

@@ -23,6 +23,9 @@
       <p>{{ latest_draft.chores|length }} chore(s),
          {{ latest_draft.constraints|length }} constraint(s),
          {{ latest_draft.assignments|length }} assignment(s).</p>
+      {% if latest_draft.is_draft %}
+        <p><a href="{% url 'chores:setup_review' %}">Review and apply this draft</a></p>
+      {% endif %}
     </section>
   {% endif %}
 {% endblock %}
