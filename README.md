@@ -28,8 +28,9 @@ An app for two-person households to plan, assign, and balance recurring chores f
 
 - **Django 5.1** (Python 3.12) — web framework, ORM, auth, admin
 - **SQLite** for development; Postgres in production
-- **HTMX + Alpine.js** for a light frontend (planned)
-- **Anthropic API** for AI-assisted setup (planned)
+- **HTMX + Alpine.js** for a light frontend, pinned and vendored (no CDN)
+- **Anthropic API** for AI-assisted setup
+- **Gunicorn + WhiteNoise** in the production image
 
 See [`_docs/tech-stack-decision.md`](_docs/tech-stack-decision.md) for why.
 
@@ -59,6 +60,18 @@ it; it refuses to run when `DEBUG=False` unless passed `--force`.
 |---|---|
 | `demo-alice` | `demo-pass-alice` |
 | `demo-bob` | `demo-pass-bob` |
+
+### Periodic commands
+
+The MVP has no scheduler; two management commands are run by hand (or wired to
+cron). Both are idempotent — safe to re-run.
+
+| Command | What it does |
+|---|---|
+| `uv run python manage.py generate_occurrences [--days 30]` | Creates missing chore occurrences across a forward window. |
+| `uv run python manage.py propose_estimates` | Turns logged actual times into pending estimate-change proposals. |
+
+Estimate proposals can also be refreshed from the in-app proposals page.
 
 ## Configuration
 
@@ -141,8 +154,18 @@ vendored into `chores/static/chores/vendor/` rather than loaded from a CDN.
 
 ## Status
 
-Early development. See [`_docs/plan.md`](_docs/plan.md) for the full MVP definition and
-what is explicitly out of scope.
+MVP complete. All 21 planned tasks (issues #1–#21) are implemented and covered by
+the test suite: accounts, household creation and invitations, chore management,
+people ↔ chore constraints, occurrences and completion, claiming and helper
+credit, configurable fairness weights, decayed workload, automatic assignment
+with a rebalance preview, estimate-learning proposals, weight-change proposals
+with dual approval, the dashboard, AI setup (plan → review → apply), admin
+coverage, demo data, and a production Docker image.
+
+Work beyond the MVP is tracked as follow-up issues #22–#33 (see
+[`_docs/groomed/follow-ups.md`](_docs/groomed/follow-ups.md)). See
+[`_docs/plan.md`](_docs/plan.md) for the full MVP definition and what is
+explicitly out of scope.
 
 ## Out of scope (MVP)
 
