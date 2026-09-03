@@ -6,6 +6,7 @@ from .models import (
     Completion,
     Constraint,
     ContributionCredit,
+    FairnessWeights,
     Household,
     Invitation,
     Membership,
@@ -16,6 +17,19 @@ from .models import (
 class HouseholdAdmin(admin.ModelAdmin):
     list_display = ("id", "name", "member_count", "created_at")
     search_fields = ("name",)
+
+
+@admin.register(FairnessWeights)
+class FairnessWeightsAdmin(admin.ModelAdmin):
+    list_display = (
+        "household",
+        "time_weight",
+        "difficulty_weight",
+        "decay_half_life_days",
+        "updated_at",
+    )
+    list_select_related = ("household",)
+    search_fields = ("household__name",)
 
 
 @admin.register(Membership)

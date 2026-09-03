@@ -6,6 +6,16 @@ from django.db import models
 from django.db.models import F, Q
 from django.utils import timezone
 
+from .fairness import (
+    DEFAULT_DECAY_HALF_LIFE_DAYS,
+    DEFAULT_DIFFICULTY_WEIGHT,
+    DEFAULT_TIME_WEIGHT,
+    HALF_LIFE_MIN_DAYS,
+    WEIGHT_MAX,
+    WEIGHT_MIN,
+    weight_errors,
+)
+
 # A household is permanently capped at two people (see _docs/plan.md).
 MAX_MEMBERS_PER_HOUSEHOLD = 2
 
@@ -67,6 +77,64 @@ class Household(models.Model):
 
     def is_full(self):
         return self.member_count() >= MAX_MEMBERS_PER_HOUSEHOLD
+
+
+class WeightValues(models.Model):
+    """The three fairness-weight numbers, shared by the stored settings and by
+    the change proposals (task #16) so the two can never drift apart.
+
+    Defaults, meanings, and allowed ranges live in ``chores/fairness/weights.py``.
+    """
+
+    time_weight = models.FloatField(
+        default=DEFAULT_TIME_WEIGHT,
+        validators=[MinValueValidator(WEIGHT_MIN)],
+        help_text="Multiplies a chore's estimated minutes.",
+    )
+    difficulty_weight = models.FloatField(
+        default=DEFAULT_DIFFICULTY_WEIGHT,
+        validators=[MinValueValidator(WEIGHT_MIN)],
+        help_text="How far difficulty swings a chore's workload.",
+    )
+    decay_half_life_days = models.PositiveIntegerField(
+        default=DEFAULT_DECAY_HALF_LIFE_DAYS,
+        validators=[MinValueValidator(HALF_LIFE_MIN_DAYS)],
+        help_text="Days after which a past contribution counts for half.",
+    )
+
+    class Meta:
+        abstract = True
+
+    def clean(self):
+        super().clean()
+        errors = weight_errors(
+            self.time_weight, self.difficulty_weight, self.decay_half_life_days
+        )
+        if errors:
+            raise ValidationError(errors)
+
+
+class FairnessWeights(WeightValues):
+    """A household's single row of fairness weights.
+
+    Created with documented defaults whenever a ``Household`` is created (a
+    ``post_save`` signal, see ``chores/signals.py``) and backfilled for any
+    household that predates this model. Either member edits the values through
+    ``/household/fairness/`` (task #16 later routes edits through approval).
+    """
+
+    household = models.OneToOneField(
+        "Household",
+        on_delete=models.CASCADE,
+        related_name="fairness_weights",
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name_plural = "fairness weights"
+
+    def __str__(self):
+        return f"Fairness weights for {self.household}"
 
 
 class Membership(models.Model):

@@ -22,7 +22,13 @@ from django.views.generic import (
 )
 
 from .fairness import workload_value
-from .forms import ChoreForm, CompletionForm, HouseholdForm, SignupForm
+from .forms import (
+    ChoreForm,
+    CompletionForm,
+    FairnessWeightsForm,
+    HouseholdForm,
+    SignupForm,
+)
 from .models import (
     CONSTRAINT_KIND_CHOICES,
     DIFFICULTY_CHOICES,
@@ -32,6 +38,7 @@ from .models import (
     ChoreOccurrence,
     Constraint,
     ContributionCredit,
+    FairnessWeights,
     Invitation,
     Membership,
 )
@@ -366,6 +373,31 @@ class ConstraintDeleteView(HouseholdScopedMixin, View):
         constraint.delete()
         messages.success(request, "Constraint removed.")
         return redirect("chores:chore_edit", pk=chore.pk)
+
+
+class FairnessWeightsUpdateView(HouseholdScopedMixin, UpdateView):
+    """Show and edit the current household's single ``FairnessWeights`` row.
+
+    ``HouseholdScopedMixin`` sends an anonymous visitor to login and a
+    signed-in user with no household to onboarding, so the object is always
+    the acting member's own household's row - there is no pk in the URL.
+    """
+
+    model = FairnessWeights
+    form_class = FairnessWeightsForm
+    template_name = "chores/fairness_form.html"
+    success_url = reverse_lazy("chores:fairness_edit")
+
+    def get_object(self, queryset=None):
+        weights, _ = FairnessWeights.objects.get_or_create(
+            household=self.household
+        )
+        return weights
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        messages.success(self.request, "Fairness weights updated.")
+        return response
 
 
 def _active_occurrences(household):

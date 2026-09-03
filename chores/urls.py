@@ -13,6 +13,11 @@ urlpatterns = [
         views.InviteAcceptView.as_view(),
         name="invite_accept",
     ),
+    path(
+        "household/fairness/",
+        views.FairnessWeightsUpdateView.as_view(),
+        name="fairness_edit",
+    ),
     path("chores/", views.ChoreListView.as_view(), name="chore_list"),
     path("chores/new/", views.ChoreCreateView.as_view(), name="chore_create"),
     path("chores/<int:pk>/edit/", views.ChoreUpdateView.as_view(), name="chore_edit"),

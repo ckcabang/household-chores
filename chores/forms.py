@@ -1,7 +1,12 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
 
-from .models import Chore, Completion, Household, Membership
+from .fairness import weight_errors
+from .models import Chore, Completion, FairnessWeights, Household, Membership
+
+# The fairness-weight fields, named once so the direct-edit form (task #12) and
+# the change-proposal form (task #16) stay in lock step with the model.
+WEIGHT_FIELDS = ["time_weight", "difficulty_weight", "decay_half_life_days"]
 
 
 class SignupForm(UserCreationForm):
@@ -67,6 +72,33 @@ class ChoreForm(forms.ModelForm):
         if not name:
             raise forms.ValidationError("Please enter a name for this chore.")
         return name
+
+
+class FairnessWeightsForm(forms.ModelForm):
+    """Edit a household's fairness weights directly.
+
+    Validation runs both here and on the model (``WeightValues.clean`` via
+    ``weight_errors``); the shared ``weight_errors`` helper keeps the two in
+    agreement.
+    """
+
+    class Meta:
+        model = FairnessWeights
+        fields = WEIGHT_FIELDS
+
+    def clean(self):
+        cleaned = super().clean()
+        errors = weight_errors(
+            cleaned.get("time_weight"),
+            cleaned.get("difficulty_weight"),
+            cleaned.get("decay_half_life_days"),
+        )
+        for field, message in errors.items():
+            # A missing value already has its own "required" error - don't
+            # stack a range error on top of it.
+            if cleaned.get(field) is not None:
+                self.add_error(field, message)
+        return cleaned
 
 
 class CompletionForm(forms.ModelForm):
